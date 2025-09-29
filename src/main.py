@@ -2,6 +2,7 @@ import pygame
 import sys
 from ui.menu import Menu
 from ui.board import Board
+from ui.numberpad import NumberPad
 from core.generator import generate_sudoku, fill_board
 
 # ------------------- INITIALIZE PYGAME -------------------
@@ -10,10 +11,14 @@ pygame.init()
 
 # ------------------- CONSTANTS -------------------
 # Constants
-SCREEN_WIDTH = 600
-SCREEN_HEIGHT = 600
-GRID_SIZE = 9
-CELL_SIZE = SCREEN_WIDTH // GRID_SIZE
+CELL_SIZE = 60
+GRID_SIZE = 9 * CELL_SIZE  # 540px if CELL_SIZE=60
+BUTTON_HEIGHT = 60
+BUTTON_AREA_HEIGHT = BUTTON_HEIGHT + 20  # padding
+
+# Update screen size
+SCREEN_WIDTH = GRID_SIZE
+SCREEN_HEIGHT = GRID_SIZE + BUTTON_AREA_HEIGHT
 GRID_PIXELS = CELL_SIZE * GRID_SIZE  # 600x600 square for grid
 FPS = 60
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -27,13 +32,30 @@ STATE_MENU = "menu"
 STATE_DIFFICULTY = "difficulty"
 STATE_GAME = "game"
 
+numberpad = NumberPad(SCREEN_WIDTH)
+
 # ------------------- CREATE MENUS -------------------
 # Menus
-main_menu = Menu([("New Game", "new_game"), ("Import", "import"), ("Continue", 'continue'),("Quit", "quit")], TITLE_FONT, 300, 200)
-difficulty_menu = Menu([("Easy", "easy"), ("Medium", "medium"), ("Hard", "hard"), ("Expert", "expert")], MENU_FONT, 300, 200)
+main_menu = Menu(
+    [("New Game", "new_game"),
+     ("Import", "import"),
+     ("Continue", 'continue'),
+     ("Quit", "quit")], 
+     TITLE_FONT, 
+     x=SCREEN_WIDTH // 2, 
+     y=SCREEN_HEIGHT // 4,
+     spacing = 50)
+difficulty_menu = Menu(
+    [("Easy", "easy"),
+     ("Medium", "medium"),
+     ("Hard", "hard"),
+     ("Expert", "expert")],
+     MENU_FONT,
+     x=SCREEN_WIDTH // 2, 
+     y=SCREEN_HEIGHT // 4,
+     spacing = 50)
 
 # ------------------- GLOBALS -------------------
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 clock = pygame.time.Clock()
 
 # State
@@ -41,12 +63,11 @@ game_state = STATE_MENU
 board = None
 selected_difficulty = None
 selected_cell = None
-difficulty = "Medium"
 
 
 # Main loop
 def main():
-    global game_state, board, selected_difficulty
+    global game_state, board, selected_difficulty, selected_cell
 
     clock = pygame.time.Clock()
     run = True
@@ -68,32 +89,66 @@ def main():
 
             # --- DIFFICULTY MENU ---
             elif game_state == STATE_DIFFICULTY:
-                choice = difficulty_menu.handle_event(event)
-                if choice:
-                    # Create 9x9 board
-                    board = Board(9, SCREEN_WIDTH)
-
-                    #Generate full board first
-                    solution_board = [[0]*9 for _ in range(9)]
-                    fill_board(solution_board)
-
+                difficulty_choice = difficulty_menu.handle_event(event)
+                if difficulty_choice:
                     # Generate puzzle for selected difficulty
-                    puzzle = generate_sudoku(choice)
-                    board.grid = puzzle
+                    puzzle, solution_board = generate_sudoku(difficulty_choice)
+                    
+                    # Create 9x9 board based on puzzle and solution
+                    board = Board(
+                        size=9,
+                        screen_size=SCREEN_WIDTH,
+                        puzzle=puzzle,
+                        solution=solution_board,
+                    )
+                    
+                    #DUBUG SECTION - Keeping for easy debug access, for now
+                    '''
+                    print("Puzzle for difficulty", choice)
+                    for row in puzzle:
+                        print(row)
 
-                    #Store solution in board
-                    board.solution = solution_board
+                    print("grid type:", type(board.grid), "len:", len(board.grid))
+                    print("grid[0] type:", type(board.grid[0]))
+                    print("user_board type:", type(board.user_board), "len:", len(board.user_board))
+                    print("user_board[0] type:", type(board.user_board[0]))
+
+                    # Debug print
+                    print("=== Initial Board State ===")
+                    print("grid:")
+                    for row in board.grid:
+                        print(row)
+                    print("user_board:")
+                    for row in board.user_board:
+                        print(row)
+                    print("givens:")
+                    for row in board.givens:
+                        print(row)
+                    print("solutions:")
+                    for row in solution_board:
+                        print(row)
+                    '''
 
                     game_state = STATE_GAME
-                    selected_cell = None
+                    board.selected_cell = None
 
-            # --- BOARD ---
+            # --- BOARD (GAME LOOP)---
             elif game_state == STATE_GAME:
                 if event.type == pygame.MOUSEBUTTONUP:
-                    # only highlight when clicked
-                    selected_cell = board.get_cell_from_mouse(event.pos)
-                    #board.draw(screen, selected_cell)
-
+                    # check if numberpad button was clicked
+                    num_clicked = numberpad.handle_event(event)
+                    if num_clicked and board and board.selected_cell:
+                        board.handle_number_entry(num_clicked)
+                    else:
+                        # only update selected_cell if the click is on the grid
+                        clicked_cell = board.get_cell_from_mouse(event.pos)
+                        if clicked_cell is not None:
+                            board.selected_cell = clicked_cell
+                # let user input numbers
+                elif event.type == pygame.KEYDOWN:
+                    if board and board.selected_cell:
+                        board.handle_key(event.key)
+                
         # --- DRAW SECTION ---
         screen.fill((255,255,255))
         if game_state == STATE_MENU:
@@ -101,11 +156,10 @@ def main():
         elif game_state == STATE_DIFFICULTY:
             difficulty_menu.draw(screen)
         elif game_state == STATE_GAME and board:
-            board.draw(screen, selected_cell)
-
+            board.draw(screen)
+            numberpad.draw(screen)
 
         pygame.display.flip()
-
         clock.tick(FPS)
 
     pygame.quit()

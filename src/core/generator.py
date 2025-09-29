@@ -1,4 +1,5 @@
 import random
+import copy
 
 GRID_SIZE = 9
 BOX_SIZE = 3
@@ -87,6 +88,9 @@ def generate_sudoku(difficulty="easy"):
     board = [[0]*GRID_SIZE for _ in range(GRID_SIZE)]
     fill_board(board)
 
+    # keep copy of the fully solved board
+    solution = copy.deepcopy(board)
+
     difficulty_map = {
         "easy": 40,     # 40 givens
         "medium": 32,   # 32 givens
@@ -96,7 +100,7 @@ def generate_sudoku(difficulty="easy"):
 
     clues_target = difficulty_map.get(difficulty, 40)  # default = easy
     puzzle = remove_numbers(board, clues_target)
-    return puzzle
+    return puzzle, solution
 
 if __name__ == "__main__":
     puzzle = generate_sudoku()
