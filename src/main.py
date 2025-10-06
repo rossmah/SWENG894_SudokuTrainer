@@ -4,6 +4,7 @@ from ui.menu import Menu
 from ui.board import Board
 from ui.numberpad import NumberPad
 from core.generator import generate_sudoku, fill_board
+from ui.timer import Timer
 
 # ------------------- INITIALIZE PYGAME -------------------
 # Initialize Pygame
@@ -12,12 +13,13 @@ pygame.init()
 # ------------------- CONSTANTS -------------------
 # Constants
 CELL_SIZE = 60
-GRID_SIZE = 9 * CELL_SIZE  # 540px if CELL_SIZE=60
+GRID_SIZE = 550
 BUTTON_HEIGHT = 60
 BUTTON_AREA_HEIGHT = BUTTON_HEIGHT + 20  # padding
+SIDEBAR_WIDTH = 250
 
 # Update screen size
-SCREEN_WIDTH = GRID_SIZE
+SCREEN_WIDTH = GRID_SIZE + SIDEBAR_WIDTH # expand for right menu
 SCREEN_HEIGHT = GRID_SIZE + BUTTON_AREA_HEIGHT
 GRID_PIXELS = CELL_SIZE * GRID_SIZE  # 600x600 square for grid
 FPS = 60
@@ -26,13 +28,14 @@ screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 # FONTS
 TITLE_FONT = pygame.font.SysFont("arial", 48)
 MENU_FONT = pygame.font.SysFont("arial", 36)
+REGULAR_FONT = pygame.font.SysFont("arial", 24)
 
 # Game states
 STATE_MENU = "menu"
 STATE_DIFFICULTY = "difficulty"
 STATE_GAME = "game"
 
-numberpad = NumberPad(SCREEN_WIDTH)
+numberpad = NumberPad(GRID_SIZE)
 
 # ------------------- CREATE MENUS -------------------
 # Menus
@@ -63,11 +66,12 @@ game_state = STATE_MENU
 board = None
 selected_difficulty = None
 selected_cell = None
+timer = None
 
 
 # Main loop
 def main():
-    global game_state, board, selected_difficulty, selected_cell
+    global game_state, board, selected_difficulty, selected_cell, timer
 
     clock = pygame.time.Clock()
     run = True
@@ -78,6 +82,14 @@ def main():
         for event in events:
             if event.type == pygame.QUIT:
                 run = False
+
+            # --- TIMER HANDLING ---
+            if timer:
+                timer.handle_event(event)
+            
+            # If overlay is active, skip other input underneath
+            if timer and timer.paused:
+                continue
 
             # --- MAIN MENU ---
             if game_state == STATE_MENU:
@@ -97,7 +109,7 @@ def main():
                     # Create 9x9 board based on puzzle and solution
                     board = Board(
                         size=9,
-                        screen_size=SCREEN_WIDTH,
+                        screen_size=GRID_SIZE,
                         puzzle=puzzle,
                         solution=solution_board,
                     )
@@ -132,6 +144,10 @@ def main():
                     game_state = STATE_GAME
                     board.selected_cell = None
 
+                    # Kick off game timer
+                    timer = Timer(pygame.font.SysFont("arial", 30), 650, 10)
+                    timer.start()
+
             # --- BOARD (GAME LOOP)---
             elif game_state == STATE_GAME:
                 if event.type == pygame.MOUSEBUTTONUP:
@@ -158,7 +174,8 @@ def main():
         elif game_state == STATE_GAME and board:
             board.draw(screen)
             numberpad.draw(screen)
-
+            if timer:
+                timer.draw(screen, SCREEN_WIDTH, SCREEN_HEIGHT, REGULAR_FONT)
         pygame.display.flip()
         clock.tick(FPS)
 

@@ -7,7 +7,7 @@ class NumberPad:
         self.font = pygame.font.SysFont("arial", 32)
         self.button_size = 48
         self.spacing = 10
-        self.y = 9 * 60 + 35 
+        self.y = 590
         self.create_buttons(screen_size)
 
     def create_buttons(self, SCREEN_WIDTH):
