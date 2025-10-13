@@ -143,6 +143,7 @@ def main():
 
                     game_state = STATE_GAME
                     board.selected_cell = None
+                    numberpad.board = board
 
                     # Kick off game timer
                     timer = Timer(pygame.font.SysFont("arial", 30), 650, 10)

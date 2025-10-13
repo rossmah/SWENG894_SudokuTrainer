@@ -6,7 +6,9 @@ GRID_LINE_COLOR = (0, 0, 0)
 HIGHLIGHT_COLOR = (200, 200, 255)  # for selected cell
 GIVEN_COLOR = (0, 0, 0)      # black for givens
 USER_COLOR = (50, 50, 200)   # optional color if later we let user enter numbers
-
+ROWCOL_HIGHLIGHT_COLOR = (220, 220, 220)  # light grey for row/col/block
+CONFLICT_COLOR = (255, 100, 100)  # red tint for conflicts
+MATCH_HIGHLIGHT_COLOR = (144, 238, 144)  # light green for common cells
 
 class Board:
     def __init__(self, size=9, screen_size=600, puzzle=None, solution=None):
@@ -28,8 +30,69 @@ class Board:
 
         # track selected cell (row, col)
         self.selected_cell = None      
+
+        # Notes mode
+        self.notes_mode = False
+        self.notes = [[set() for _ in range(self.size)] for _ in range(self.size)]
+
+    def get_conflicts(self, row, col):
+        # Return list of (r, c) positions that conflict with selected cell
+        conflicts = []
+        num = self.user_board[row][col]
+        if num == 0:
+            return conflicts
+
+        # same row or column
+        for i in range(self.size):
+            if i != col and self.user_board[row][i] == num:
+                conflicts.append((row, i))
+            if i != row and self.user_board[i][col] == num:
+                conflicts.append((i, col))
+
+        # same 3x3 block
+        block_row = (row // 3) * 3
+        block_col = (col // 3) * 3
+        for r in range(block_row, block_row + 3):
+            for c in range(block_col, block_col + 3):
+                if (r, c) != (row, col) and self.user_board[r][c] == num:
+                    conflicts.append((r, c))
+        return conflicts
        
     def draw(self, screen):
+        # Draw grey highlight for row, column, and block
+        if self.selected_cell:
+             # Highlight all matching numbers in green
+            sel_row, sel_col = self.selected_cell
+            selected_value = self.user_board[sel_row][sel_col]
+            if selected_value != 0:
+                for r in range(self.size):
+                    for c in range(self.size):
+                        if (r, c) != (sel_row, sel_col) and self.user_board[r][c] == selected_value:
+                            match_rect = pygame.Rect(
+                                c * self.cell_size,
+                                r * self.cell_size,
+                                self.cell_size,
+                                self.cell_size
+                            )
+                            pygame.draw.rect(screen, MATCH_HIGHLIGHT_COLOR, match_rect)
+            # Highlight all conflicts in red
+            row, col = self.selected_cell
+            block_row = (row // 3) * 3
+            block_col = (col // 3) * 3
+            for r in range(self.size):
+                for c in range(self.size):
+                    if r == row or c == col or (block_row <= r < block_row + 3 and block_col <= c < block_col + 3):
+                        rect = pygame.Rect(
+                            c * self.cell_size,
+                            r * self.cell_size,
+                            self.cell_size,
+                            self.cell_size
+                        )
+                        pygame.draw.rect(screen, ROWCOL_HIGHLIGHT_COLOR, rect)
+            for (r, c) in self.get_conflicts(row, col):
+                rect = pygame.Rect(c * self.cell_size, r * self.cell_size, self.cell_size, self.cell_size)
+                pygame.draw.rect(screen, CONFLICT_COLOR, rect)
+
         # Draw grid cells
         for row in range(self.size):
             for col in range(self.size):
@@ -61,6 +124,19 @@ class Board:
                     label = self.font.render(str(num), True, color)
                     label_rect = label.get_rect(center=rect.center)
                     screen.blit(label, label_rect)
+
+                # Draw notes - only if cell is empty
+                notes = self.notes[row][col]
+                if notes and self.user_board[row][col] == 0:
+                    for note in notes:
+                        sub_row = (note - 1) // 3
+                        sub_col = (note - 1) % 3
+                        x = col * self.cell_size + (sub_col + 0.5) * (self.cell_size / 3)
+                        y = row * self.cell_size + (sub_row + 0.5) * (self.cell_size / 3)
+                        note_font = pygame.font.SysFont("arial", self.cell_size // 4)
+                        note_label = note_font.render(str(note), True, (120, 120, 120))
+                        note_rect = note_label.get_rect(center=(x, y))
+                        screen.blit(note_label, note_rect)
 
         # Draw thicker lines every 3 cells (classic Sudoku style)
         for i in range(self.size + 1):
@@ -109,6 +185,20 @@ class Board:
         if self.givens[row][col] == 1 or self.locked[row][col] == 1:
             return
         
+        # ----- Notes mode -----
+        if self.notes_mode:
+            # Only allow notes in empty cells
+            if self.user_board[row][col] != 0:
+                return
+            if number == 0:
+                self.notes[row][col].clear()
+            elif number in self.notes[row][col]:
+                self.notes[row][col].remove(number)
+            else:
+                self.notes[row][col].add(number)
+            return  # stop here, do not place number in user_board
+
+        # ----- Solve mode -----
         if number == 0:
             # Clear only if not locked
             self.user_board[row][col] = 0
@@ -120,3 +210,6 @@ class Board:
         # If correct, lock it
         if self.solution and number == self.solution[row][col]:
             self.locked[row][col] = 1
+    
+    def toggle_notes_mode(self):
+        self.notes_mode = not self.notes_mode

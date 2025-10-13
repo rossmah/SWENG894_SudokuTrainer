@@ -7,7 +7,7 @@ class Timer:
         self.font = font
         self.x = x
         self.y = y
-        self.icon_size = 30
+        self.icon_size = 20
         
         #Timer State
         self.start_time = None
@@ -16,7 +16,7 @@ class Timer:
         self.total_paused = 0
 
         # Pause icon area
-        self.pause_rect = pygame.Rect(self.x + 80, self.y, self.icon_size, self.icon_size)
+        self.pause_rect = pygame.Rect(self.x + 80, self.y + 5, self.icon_size, self.icon_size)
         self.resume_rect = None # Overlay button
 
     def start(self):
@@ -66,7 +66,7 @@ class Timer:
         icon_color = (50, 50, 50)
         if self.paused:
             overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
-            overlay.set_alpha(200)  # semi-transparent
+            overlay.set_alpha(255)  # not-transparent
             overlay.fill((50, 50, 50))  # dark grey overlay
             screen.blit(overlay, (0,0))
 
