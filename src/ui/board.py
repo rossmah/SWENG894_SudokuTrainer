@@ -1,14 +1,8 @@
 # ui/board.py
 import pygame
+import ui.style as style
 
 GRID_SIZE = 9
-GRID_LINE_COLOR = (0, 0, 0)
-HIGHLIGHT_COLOR = (200, 200, 255)  # for selected cell
-GIVEN_COLOR = (0, 0, 0)      # black for givens
-USER_COLOR = (50, 50, 200)   # optional color if later we let user enter numbers
-ROWCOL_HIGHLIGHT_COLOR = (220, 220, 220)  # light grey for row/col/block
-CONFLICT_COLOR = (255, 100, 100)  # red tint for conflicts
-MATCH_HIGHLIGHT_COLOR = (144, 238, 144)  # light green for common cells
 
 class Board:
     def __init__(self, size=9, screen_size=600, puzzle=None, solution=None):
@@ -29,7 +23,8 @@ class Board:
         self.locked = [[0 for _ in range(size)] for _ in range(size)]
 
         # track selected cell (row, col)
-        self.selected_cell = None      
+        self.selected_cell = None
+        self.selected_cell_type = None     
 
         # Notes mode
         self.notes_mode = False
@@ -59,6 +54,11 @@ class Board:
         return conflicts
        
     def draw(self, screen):
+        # Draw grid background color
+        grid_size = self.cell_size * 9
+        grid_rect = pygame.Rect(style.GRID_OFFSET_X, style.GRID_OFFSET_Y, grid_size, grid_size)
+        pygame.draw.rect(screen, style.BACKGROUND_GRID, grid_rect)
+
         # Draw grey highlight for row, column, and block
         if self.selected_cell:
              # Highlight all matching numbers in green
@@ -69,12 +69,12 @@ class Board:
                     for c in range(self.size):
                         if (r, c) != (sel_row, sel_col) and self.user_board[r][c] == selected_value:
                             match_rect = pygame.Rect(
-                                c * self.cell_size,
-                                r * self.cell_size,
+                                style.GRID_OFFSET_X + c * self.cell_size,
+                                style.GRID_OFFSET_Y + r * self.cell_size,
                                 self.cell_size,
                                 self.cell_size
                             )
-                            pygame.draw.rect(screen, MATCH_HIGHLIGHT_COLOR, match_rect)
+                            pygame.draw.rect(screen, style.HIGHLIGHT_GREEN, match_rect)
             # Highlight all conflicts in red
             row, col = self.selected_cell
             block_row = (row // 3) * 3
@@ -83,44 +83,58 @@ class Board:
                 for c in range(self.size):
                     if r == row or c == col or (block_row <= r < block_row + 3 and block_col <= c < block_col + 3):
                         rect = pygame.Rect(
-                            c * self.cell_size,
-                            r * self.cell_size,
+                            style.GRID_OFFSET_X + c * self.cell_size,
+                            style.GRID_OFFSET_Y + r * self.cell_size,
                             self.cell_size,
                             self.cell_size
                         )
-                        pygame.draw.rect(screen, ROWCOL_HIGHLIGHT_COLOR, rect)
+                        pygame.draw.rect(screen, style.HIGHLIGHT_GREY, rect)
             for (r, c) in self.get_conflicts(row, col):
-                rect = pygame.Rect(c * self.cell_size, r * self.cell_size, self.cell_size, self.cell_size)
-                pygame.draw.rect(screen, CONFLICT_COLOR, rect)
+                rect = pygame.Rect(
+                    style.GRID_OFFSET_X + c * self.cell_size,
+                    style.GRID_OFFSET_Y + r * self.cell_size,
+                    self.cell_size,
+                    self.cell_size
+                )
+                pygame.draw.rect(screen, style.HIGHLIGHT_RED, rect)
 
         # Draw grid cells
         for row in range(self.size):
             for col in range(self.size):
                 rect = pygame.Rect(
-                    col * self.cell_size,
-                    row * self.cell_size,
+                    style.GRID_OFFSET_X + col * self.cell_size,
+                    style.GRID_OFFSET_Y + row * self.cell_size,
                     self.cell_size,
                     self.cell_size
                 )
                 # Highlight selected cell
                 if self.selected_cell == (row, col):
-                    pygame.draw.rect(screen, HIGHLIGHT_COLOR, rect)
+                    if self.givens[row][col]:
+                        # Givens - Highlight selected cell in blue
+                        pygame.draw.rect(screen, style.HIGHLIGHT_BLUE, rect)
+                    elif self.locked[row][col]: 
+                        # Correct entry - Highlight selected cell in blue
+                        pygame.draw.rect(screen, style.HIGHLIGHT_BLUE, rect)
+                    elif self.user_board[row][col] != 0 and self.solution:
+                        # Wrong entry - Highlight selected cell in red
+                        pygame.draw.rect(screen, style.HIGHLIGHT_WRONG_ENTRY, rect)
+                        self.selected_cell_type="WRONG"
+                    else:  # Default - Highlight selected cell in blue
+                        pygame.draw.rect(screen, style.HIGHLIGHT_BLUE, rect)
 
-                # draw border
-                pygame.draw.rect(screen, GRID_LINE_COLOR, rect, 1)
-                
                 # Draw numbers: givens first, then user_board               
                 num = self.user_board[row][col]
+                is_wrong = self.solution and num != 0 and num != self.solution[row][col] and not self.givens[row][col]
                 if num != 0:
                     if self.givens[row][col] != 0:
                     # Given number - black
-                        color = GIVEN_COLOR
+                        color = style.GIVEN_COLOR
                     elif self.locked[row][col]:
                         # Correct user entry - blue
-                        color = USER_COLOR
+                        color = style.USER_COLOR
                     else:
                         # Incorrect user entry - red
-                        color = (255, 0, 0)
+                        color = style.WRONG_COLOR
                     label = self.font.render(str(num), True, color)
                     label_rect = label.get_rect(center=rect.center)
                     screen.blit(label, label_rect)
@@ -131,8 +145,8 @@ class Board:
                     for note in notes:
                         sub_row = (note - 1) // 3
                         sub_col = (note - 1) % 3
-                        x = col * self.cell_size + (sub_col + 0.5) * (self.cell_size / 3)
-                        y = row * self.cell_size + (sub_row + 0.5) * (self.cell_size / 3)
+                        x = style.GRID_OFFSET_X + col * self.cell_size + (sub_col + 0.5) * (self.cell_size / 3)
+                        y = style.GRID_OFFSET_Y + row * self.cell_size + (sub_row + 0.5) * (self.cell_size / 3)
                         note_font = pygame.font.SysFont("arial", self.cell_size // 4)
                         note_label = note_font.render(str(note), True, (120, 120, 120))
                         note_rect = note_label.get_rect(center=(x, y))
@@ -140,26 +154,29 @@ class Board:
 
         # Draw thicker lines every 3 cells (classic Sudoku style)
         for i in range(self.size + 1):
-            line_width = 3 if i % 3 == 0 else 1
+            if  i % 3 == 0:
+                line_width = 3
+            else:
+                line_width = 1
             # Vertical lines
             pygame.draw.line(
-                screen, GRID_LINE_COLOR,
-                (i * self.cell_size, 0),
-                (i * self.cell_size, self.screen_size),
+                screen, style.GRID_BLACK_LINE,
+                (style.GRID_OFFSET_X + i * self.cell_size, style.GRID_OFFSET_Y),
+                (style.GRID_OFFSET_X + i * self.cell_size, style.GRID_OFFSET_Y + self.screen_size),
                 line_width
             )
             # Horizontal lines
             pygame.draw.line(
-                screen, GRID_LINE_COLOR,
-                (0, i * self.cell_size),
-                (self.screen_size, i * self.cell_size),
+                screen, style.GRID_BLACK_LINE,
+                (style.GRID_OFFSET_X, style.GRID_OFFSET_Y + i * self.cell_size),
+                (style.GRID_OFFSET_X + self.screen_size, style.GRID_OFFSET_Y + i * self.cell_size),
                 line_width
             )
 
     def get_cell_from_mouse(self, pos):
         x, y = pos
-        col = x // self.cell_size
-        row = y // self.cell_size
+        col = (x - style.GRID_OFFSET_X) // self.cell_size
+        row = (y - style.GRID_OFFSET_Y) // self.cell_size
         if 0 <= row < self.size and 0 <= col < self.size:
             return (row, col)
         return None
