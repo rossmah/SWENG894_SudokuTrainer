@@ -30,6 +30,9 @@ class Board:
         self.notes_mode = False
         self.notes = [[set() for _ in range(self.size)] for _ in range(self.size)]
 
+        # Count of how many of each number user has correctly entered
+        self.number_counts = {i: 0 for i in range(1, 10)}
+
     def get_conflicts(self, row, col):
         # Return list of (r, c) positions that conflict with selected cell
         conflicts = []
@@ -185,6 +188,9 @@ class Board:
         #Convert a key press into a number entry or deletion.
         if key in range(pygame.K_1, pygame.K_9 + 1):
             number = key - pygame.K_0
+            # If all of number x is on the board, don't let user enter more
+            if self.number_counts.get(number, 0) >= 9:
+                return
             self.handle_number_entry(number)
         elif key in (pygame.K_BACKSPACE, pygame.K_DELETE):
             self.handle_number_entry(0) 
@@ -207,8 +213,9 @@ class Board:
             # Only allow notes in empty cells
             if self.user_board[row][col] != 0:
                 return
-            if number == 0:
-                self.notes[row][col].clear()
+            
+            if self.number_counts[number] >= 9:
+                return
             elif number in self.notes[row][col]:
                 self.notes[row][col].remove(number)
             else:
@@ -216,17 +223,23 @@ class Board:
             return  # stop here, do not place number in user_board
 
         # ----- Solve mode -----
-        if number == 0:
-            # Clear only if not locked
-            self.user_board[row][col] = 0
-            return
-        
         # Place number
         self.user_board[row][col] = number
 
         # If correct, lock it
         if self.solution and number == self.solution[row][col]:
             self.locked[row][col] = 1
+            
+            # Update number counts after correct entry
+            self.update_number_counts()
     
     def toggle_notes_mode(self):
         self.notes_mode = not self.notes_mode
+
+    def update_number_counts(self):
+        # Recalculate how many times each number (1–9) appears on the board
+        self.number_counts = {i: 0 for i in range(1, 10)}
+        for row in self.user_board:
+            for num in row:
+                if num in self.number_counts:
+                    self.number_counts[num] += 1

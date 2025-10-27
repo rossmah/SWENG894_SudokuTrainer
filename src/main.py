@@ -5,9 +5,9 @@ from ui.board import Board
 from ui.numberpad import NumberPad
 from core.generator import generate_sudoku, fill_board
 from ui.timer import Timer
-#from ui.style import *
 import ui.style as style
 from ui.sidebar import Sidebar
+from ui.hint_section import handle_hint_key
 
 # ------------------- INITIALIZE PYGAME -------------------
 # Initialize Pygame
@@ -167,6 +167,13 @@ def main():
                 elif event.type == pygame.KEYDOWN:
                     if board and board.selected_cell:
                         board.handle_key(event.key)
+                    # Hint Keys - Used for easy testing/debugging
+                    if board:
+                        handle_hint_key(event, board)
+
+                # Hint Section - Heuristic Button Click Handling
+                if board and sidebar:
+                    sidebar.hint_section.handle_event(event, board)
                 
         # --- DRAW SECTION ---
         screen.fill(style.BACKGROUND_COLOR)
@@ -174,7 +181,7 @@ def main():
             main_menu.draw(screen)
         elif game_state == STATE_DIFFICULTY:
             difficulty_menu.draw(screen)
-        elif game_state == STATE_GAME and board: # and not timer.paused:
+        elif game_state == STATE_GAME and board:
             board.draw(screen)
             sidebar.draw(screen)
         pygame.display.flip()

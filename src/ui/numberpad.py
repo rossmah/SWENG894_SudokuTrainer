@@ -31,42 +31,52 @@ class NumberPad:
     def draw(self, screen):
         mouse_pos = pygame.mouse.get_pos()
 
+        # Count how many of each number are on the board
+        counts = counts = self.board.number_counts if self.board else {i: 0 for i in range(1, 10)}
+            
         for num, (x, y) in self.buttons:
-            # Hover effect
-            dist = ((mouse_pos[0] - x) ** 2 + (mouse_pos[1] - y) ** 2) ** 0.5
-            is_hovered = dist <= self.button_size // 2
-            color = style.NUMBERPAD_HOVER_COLOR if is_hovered else style.NUMBERPAD_BUTTON_COLOR
+            # Reduce opacity if number is fully used
+            usage = counts.get(num, 0)
+            
+            if usage < 9:
+                # Hover effect
+                dist = ((mouse_pos[0] - x) ** 2 + (mouse_pos[1] - y) ** 2) ** 0.5
+                is_hovered = dist <= self.button_size // 2
+                color = style.NUMBERPAD_HOVER_COLOR if is_hovered else style.NUMBERPAD_BUTTON_COLOR
+                
+                # Draw circle for each button
+                pygame.draw.circle(screen, color, (x, y), self.button_size // 2)
+                pygame.draw.circle(screen, style.NUMBERPAD_BORDER_COLOR, (x, y), self.button_size // 2, 2)
 
-            # Draw circle for each button
-            pygame.draw.circle(screen, color, (x, y), self.button_size // 2)
-            pygame.draw.circle(screen, style.NUMBERPAD_BORDER_COLOR, (x, y), self.button_size // 2, 2)
+                # Draw text centered in circle
+                text_surface = self.font.render(str(num), True, (0, 0, 0))
+                text_rect = text_surface.get_rect(center=(x, y))
+                screen.blit(text_surface, text_rect)
 
-            # Draw text centered in circle
-            text_surface = self.font.render(str(num), True, (0, 0, 0))
-            text_rect = text_surface.get_rect(center=(x, y))
-            screen.blit(text_surface, text_rect)
+        # Draw mode label
+        mode_text = f"{'Notes' if self.board and self.board.notes_mode else 'Solve'} Mode"
+        mode_label = self.mode_label_font.render(mode_text, True, (0, 0, 0))
+        screen.blit(mode_label, self.mode_label_pos)
 
-            # Draw mode label
-            mode_text = f"{'Notes' if self.board and self.board.notes_mode else 'Solve'} Mode"
-            mode_label = self.mode_label_font.render(mode_text, True, (0, 0, 0))
-            screen.blit(mode_label, self.mode_label_pos)
+        # Draw switch button
+        pygame.draw.rect(screen, (220, 220, 220), self.switch_rect, border_radius=6)
+        pygame.draw.rect(screen, (0, 0, 0), self.switch_rect, 2, border_radius=6)
 
-            # Draw switch button
-            pygame.draw.rect(screen, (220, 220, 220), self.switch_rect, border_radius=6)
-            pygame.draw.rect(screen, (0, 0, 0), self.switch_rect, 2, border_radius=6)
-
-            # Draw arrows inside switch
-            cx, cy = self.switch_rect.center
-            arrow_size = 7
-            left_arrow = [(cx - 14, cy), (cx - 6, cy - arrow_size), (cx - 6, cy + arrow_size)]
-            right_arrow = [(cx + 14, cy), (cx + 6, cy - arrow_size), (cx + 6, cy + arrow_size)]
-            pygame.draw.polygon(screen, (0, 0, 0), left_arrow)
-            pygame.draw.polygon(screen, (0, 0, 0), right_arrow)
+        # Draw arrows inside switch
+        cx, cy = self.switch_rect.center
+        arrow_size = 7
+        left_arrow = [(cx - 14, cy), (cx - 6, cy - arrow_size), (cx - 6, cy + arrow_size)]
+        right_arrow = [(cx + 14, cy), (cx + 6, cy - arrow_size), (cx + 6, cy + arrow_size)]
+        pygame.draw.polygon(screen, (0, 0, 0), left_arrow)
+        pygame.draw.polygon(screen, (0, 0, 0), right_arrow)
 
     def handle_event(self, event):
         if event.type == pygame.MOUSEBUTTONUP:
             # Check number buttons
             for num, (x, y) in self.buttons:
+                if self.board and self.board.number_counts.get(num, 0) >= 9:
+                    continue
+
                 dx = event.pos[0] - x
                 dy = event.pos[1] - y
                 if dx*dx + dy*dy <= (self.button_size // 2) ** 2:  # inside circle
