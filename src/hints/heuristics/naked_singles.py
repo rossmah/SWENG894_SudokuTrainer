@@ -36,7 +36,7 @@ def find_naked_singles(board):
                     ui_cell = cell_to_ui_cell([(r, c)])[0]
                     hints.append({
                         'technique': 'Naked Single',
-                        'cell': (r, c),
+                        'cell': ui_cell,
                         'value': val,
                         'reason': f'Cell {ui_cell} can only be {val}.',
                         'where': ['cell']

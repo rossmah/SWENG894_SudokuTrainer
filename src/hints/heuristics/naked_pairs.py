@@ -41,7 +41,7 @@ def find_naked_pairs(board):
         for pair, cells in pair_cells.items():
             if len(cells) == 2:
                 reason = f"Cells {cell_to_ui_cell(cells)} form naked pair {pair} in row {r+1}." # remove num elsewhere in row.
-                record_pair(cells, pair, "row", reason)
+                record_pair(cell_to_ui_cell(cells), pair, "row", reason)
         
     # --- Check columns ---
     for c in range(size):
@@ -53,7 +53,7 @@ def find_naked_pairs(board):
         for pair, cells in pair_cells.items():
             if len(cells) == 2:
                 reason = f"Cells {cell_to_ui_cell(cells)} form naked pair {pair} in column {c+1}." #remove these numbers elsewhere in the column.
-                record_pair(cells, pair, "column", reason)
+                record_pair(cell_to_ui_cell(cells), pair, "column", reason)
     
     # --- Check blocks ---
     for block_row in range(0, size, 3):
@@ -67,7 +67,7 @@ def find_naked_pairs(board):
             for pair, cells in pair_cells.items():
                 if len(cells) == 2:
                     reason = f"Cells {cell_to_ui_cell(cells)} form naked pair {pair} in block starting at ({block_row+1}, {block_col+1})." #remove these numbers elsewhere in the block.
-                    record_pair(cells, pair, "block", reason)
+                    record_pair(cell_to_ui_cell(cells), pair, "block", reason)
 
         # Merge all consolidated findings
         findings = list(pair_map.values())

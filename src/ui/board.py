@@ -1,6 +1,9 @@
 # ui/board.py
 import pygame
 import ui.style as style
+from hints.utils.board_utils import get_all_candidates, pretty_print_findings
+from ui.hint_section import handle_hint_key
+
 
 GRID_SIZE = 9
 
@@ -33,6 +36,10 @@ class Board:
         # Count of how many of each number user has correctly entered
         self.number_counts = {i: 0 for i in range(1, 10)}
 
+        # Highlighting hints
+        self.highlighted_cells = []       # Cells highlighted for the current hint
+        self.highlighted_candidates = {}  # Dict mapping (r,c) -> set of candidates to highlight
+
     def get_conflicts(self, row, col):
         # Return list of (r, c) positions that conflict with selected cell
         conflicts = []
@@ -55,6 +62,38 @@ class Board:
                 if (r, c) != (row, col) and self.user_board[r][c] == num:
                     conflicts.append((r, c))
         return conflicts
+    
+    # --- New method to highlight candidates for a hint ---
+    def highlight_candidates_for_hint(self, cells):
+        """
+        Marks the given cells as associated with a hint and populates
+        candidate notes for empty or incorrect cells.
+        """
+        self.highlighted_cells = cells if isinstance(cells, list) else [cells]
+        self.highlighted_candidates = {}
+
+        all_candidates = get_all_candidates(self)  # From board_utils.py
+
+        for r, c in self.highlighted_cells:
+            # If the cell is empty or has a wrong entry, replace value with notes
+            if self.user_board[r][c] == 0 or (self.solution and self.user_board[r][c] != self.solution[r][c]):
+                self.user_board[r][c] = 0  # Clear wrong value if needed
+                self.notes[r][c] = set(all_candidates[r][c])
+            
+            # Keep track of candidates for green highlighting
+            self.highlighted_candidates[(r, c)] = set(all_candidates[r][c])
+
+    def highlight_hint_candidates(self, cells, values):
+            """Highlight candidate numbers for the given cells and values."""
+            candidates = get_all_candidates(self)
+            self.highlighted_candidates.clear()
+
+            for (r, c) in cells:
+                if r < len(candidates) and c < len(candidates[r]):
+                    for val in values:
+                        if val in candidates[r][c]:
+                            # store per-cell, per-value highlight
+                            self.highlighted_candidates[(r, c, val)] = True
        
     def draw(self, screen):
         # Draw grid background color
@@ -155,6 +194,30 @@ class Board:
                         note_rect = note_label.get_rect(center=(x, y))
                         screen.blit(note_label, note_rect)
 
+        # --- Draw notes (with green boxes for highlighted candidates) ---
+        for row in range(self.size):
+            for col in range(self.size):
+                notes = self.notes[row][col]
+                if notes and self.user_board[row][col] == 0:
+                    for note in notes:
+                        sub_row = (note - 1) // 3
+                        sub_col = (note - 1) % 3
+                        x = style.GRID_OFFSET_X + col * self.cell_size + (sub_col + 0.5) * (self.cell_size / 3)
+                        y = style.GRID_OFFSET_Y + row * self.cell_size + (sub_row + 0.5) * (self.cell_size / 3)
+
+                        note_font = pygame.font.SysFont("arial", self.cell_size // 4)
+                        note_label = note_font.render(str(note), True, (120, 120, 120))
+                        note_rect = note_label.get_rect(center=(x, y))
+                        screen.blit(note_label, note_rect)
+
+                        # If this candidate is part of a shown hint - draw green box 
+                        if (row, col) in self.highlighted_candidates and note in self.highlighted_candidates[(row, col)]:
+                            box_rect = note_rect.inflate(6, 6)
+                            pygame.draw.rect(screen, style.HIGHLIGHT_GREEN, box_rect, border_radius=2)  # filled
+                            # Then blit number on top
+                            note_label = note_font.render(str(note), True, (0, 0, 0))  # text color (black)
+                            screen.blit(note_label, note_rect)
+
         # Draw thicker lines every 3 cells (classic Sudoku style)
         for i in range(self.size + 1):
             if  i % 3 == 0:
@@ -243,3 +306,62 @@ class Board:
             for num in row:
                 if num in self.number_counts:
                     self.number_counts[num] += 1
+
+        #
+        # Apply hint highlighting to the board.
+        # Args:
+        #    hints: list of hint dicts, each containing at least 'cell' and 'value'
+        #
+    def highlight_cells(self, hints):
+        # Clear previous highlights
+        self.highlighted_candidates.clear()
+        candidates = get_all_candidates(self)
+
+        for hint in hints:
+            # --- Normalize cells ---
+            cells = hint.get('cell')
+            if isinstance(cells, tuple) and len(cells) == 2 and all(isinstance(x, int) for x in cells):
+                # single cell tuple
+                cells = [cells]
+            elif isinstance(cells, list) and all(isinstance(c, tuple) and len(c) == 2 for c in cells):
+                # list of tuples
+                pass
+            else:
+                # Unexpected format, skip
+                print(f"Warning: unexpected cell format in hint: {cells}")
+                continue
+
+            # --- Normalize values ---
+            values = hint.get('value')
+            if isinstance(values, int):
+                values = [values]
+            elif isinstance(values, (set, tuple, list)):
+                values = list(values)
+            else:
+                print(f"Warning: unexpected value format in hint: {values}")
+                continue
+
+            # --- Apply highlights ---
+            for cell in cells:
+                r, c = cell
+
+                #Convert from 1-based (UI) to 0-based (internal) indexing
+                if r >= 1 and c >= 1:
+                    r -= 1
+                    c -= 1
+                # Defensive: skip invalid cells
+                if not (0 <= r < self.size and 0 <= c < self.size):
+                    print(f"Warning: cell out of bounds in highlight_cells: ({r}, {c})")
+                    continue
+
+                if 0 <= r < self.size and 0 <= c < self.size:
+                    if (r, c) not in self.highlighted_candidates:
+                        self.highlighted_candidates[(r, c)] = set()
+                    self.highlighted_candidates[(r, c)].update(values)
+
+                    fake_event = pygame.event.Event(pygame.KEYDOWN, {'key': pygame.K_f})
+                    handle_hint_key(fake_event, self)
+                    
+                else:
+                    print(f"Warning: cell out of bounds in highlight_cells: {(r,c)}")
+

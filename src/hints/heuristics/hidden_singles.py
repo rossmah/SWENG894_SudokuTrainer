@@ -34,7 +34,7 @@ def find_hidden_singles(board):
                     ui_cell = cell_to_ui_cell([cell])[0]
                     hints.append({
                         "technique": "Hidden Single",
-                        "cell": cell,
+                        "cell": ui_cell,
                         "value": num,
                         "reason": f"Number {num} can only go in cell {ui_cell} in {context}.",
                         "where": [context]

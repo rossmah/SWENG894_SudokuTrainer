@@ -39,7 +39,7 @@ class Sidebar:
             self.timer.draw(screen, self.screen_width, screen.get_height(), style.FONT_TIMER)
         
         # Draw Hint Section
-        if self.hint_section:
+        if self.hint_section and not self.timer.paused:
             self.hint_section.draw(screen)
 
         # Draw numberpad / toggle button if applicable
