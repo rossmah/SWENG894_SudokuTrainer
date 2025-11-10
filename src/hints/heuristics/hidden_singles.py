@@ -1,6 +1,7 @@
 # src/hints/heuristics/hidden_singles.py
 from hints.utils.board_utils import get_all_candidates, cell_to_ui_cell
 from .naked_singles import find_naked_singles
+from hints.utils.elimination_utils import find_eliminations
 
 #
 #    Find all hidden singles in the current board state,
@@ -12,6 +13,7 @@ def find_hidden_singles(board):
     hints = []
     size = board.size
     candidates = get_all_candidates(board)
+    technique = 'Hidden Singles'
 
     # Skip naked singles
     naked_singles = find_naked_singles(board)
@@ -32,12 +34,15 @@ def find_hidden_singles(board):
                 if cell not in assigned_cells:
                     assigned_cells.add(cell)
                     ui_cell = cell_to_ui_cell([cell])[0]
+                    r, c = cell
+                    eliminations = find_eliminations(board, [(r, c, num)], technique)
                     hints.append({
-                        "technique": "Hidden Single",
+                        "technique": technique,
                         "cell": ui_cell,
                         "value": num,
                         "reason": f"Number {num} can only go in cell {ui_cell} in {context}.",
-                        "where": [context]
+                        "where": [context],
+                        "eliminations": eliminations
                     })
 
     # --- Row check ---

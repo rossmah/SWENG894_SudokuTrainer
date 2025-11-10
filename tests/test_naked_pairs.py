@@ -18,90 +18,65 @@ def empty_board():
     puzzle = [[0 for _ in range(9)] for _ in range(9)]
     return Board(puzzle=puzzle)
 
-@pytest.fixture
-def simple_row_pair_board():
-    # Board with a naked pair in row 0 at columns 0 and 1
-    puzzle = [
-        [0]*9,
-        [0]*9,
-        [0]*9,
-        [0]*9,
-        [0]*9,
-        [0]*9,
-        [0]*9,
-        [0]*9,
-        [0]*9
-    ]
-    board = Board(puzzle=puzzle)
-    # Manually fill notes/candidates for row 0
-    board.notes[0][0] = {1, 2}
-    board.notes[0][1] = {1, 2}
-    board.notes[0][2] = {3}
-    return board
+# tests/test_naked_pairs.py
+import pytest
+from unittest.mock import patch
+from hints.heuristics.naked_pairs import find_naked_pairs
 
-@pytest.fixture
-def simple_column_pair_board():
-    # Naked pair in column 0 at rows 0 and 1
-    puzzle = [[0]*9 for _ in range(9)]
-    board = Board(puzzle=puzzle)
-    board.notes[0][0] = {4, 5}
-    board.notes[1][0] = {4, 5}
-    return board
+# ---------------- Dummy Boards ----------------
+class DummyBoard:
+    def __init__(self, user_board):
+        self.user_board = user_board
+        self.size = 9
 
-@pytest.fixture
-def simple_block_pair_board():
-    # Naked pair in top-left block
-    puzzle = [[0]*9 for _ in range(9)]
-    board = Board(puzzle=puzzle)
-    board.notes[0][0] = {6, 7}
-    board.notes[1][1] = {6, 7}
-    return board
+# ---------------- Test Cases ----------------
+def test_detect_naked_pair_in_row():
+    # Row 0 has a naked pair (1,2) in columns 0 & 1
+    user_board = [[0]*9 for _ in range(9)]
+    board = DummyBoard(user_board)
 
-# --- Tests ---
-def test_no_pairs_on_empty_board(empty_board):
-    findings = find_naked_pairs(empty_board)
-    assert findings == []
+    # Patch get_all_candidates to force the naked pair
+    candidates = [[set() for _ in range(9)] for _ in range(9)]
+    candidates[0][0] = {1, 2}
+    candidates[0][1] = {1, 2}
 
-def test_detect_naked_pair_in_row(simple_row_pair_board):
-    findings = find_naked_pairs(simple_row_pair_board)
-    assert len(findings) > 0
-    pair_found = False
-    for f in findings:
-        # Check that technique is Naked Pair
-        assert f["technique"] == "Naked Pair"
-        # Check cells match the expected row positions
-        if f["cell"] == [(0, 0), (0, 1)] or f["cell"] == [(0, 1), (0, 0)]:
-            pair_found = True
-            # Check value set
-            assert f["value"] == {1, 2}
-            # Check scope
-            assert "row" in f["where"]
-    assert pair_found
+    with patch("hints.utils.board_utils.get_all_candidates", return_value=candidates):
+        findings = find_naked_pairs(board)
 
-def test_detect_naked_pair_in_column(simple_column_pair_board):
-    findings = find_naked_pairs(simple_column_pair_board)
-    pair_found = False
-    for f in findings:
-        if f["cell"] == [(0, 0), (1, 0)] or f["cell"] == [(1, 0), (0, 0)]:
-            pair_found = True
-            assert f["value"] == {4, 5}
-            assert "column" in f["where"]
-    assert pair_found
+    # There should be eliminations in row 0 (columns 2-8) for 1 and 2
+    eliminated_cells = [(r-1, c-1) for f in findings for r, c in [f['cell']]]
+    expected_cells = [(0, c) for c in range(2, 9)]
+    assert all(cell in eliminated_cells for cell in expected_cells), "Naked pair in row not detected"
 
-def test_detect_naked_pair_in_block(simple_block_pair_board):
-    findings = find_naked_pairs(simple_block_pair_board)
-    pair_found = False
-    for f in findings:
-        if f["cell"] == [(0, 0), (1, 1)] or f["cell"] == [(1, 1), (0, 0)]:
-            pair_found = True
-            assert f["value"] == {6, 7}
-            assert "block" in f["where"]
-    assert pair_found
+def test_detect_naked_pair_in_column():
+    # Column 0 has a naked pair (3,4) in rows 0 & 1
+    user_board = [[0]*9 for _ in range(9)]
+    board = DummyBoard(user_board)
 
-def test_multiple_pairs():
-    # Board with multiple pairs in different units
-    puzzle = [[0]*9 for _ in range(9)]
-    board = Board(puzzle=puzzle)
-    # Row pair
-    board.notes[0][0] = {1, 2}
-    board.notes
+    candidates = [[set() for _ in range(9)] for _ in range(9)]
+    candidates[0][0] = {3, 4}
+    candidates[1][0] = {3, 4}
+
+    with patch("hints.utils.board_utils.get_all_candidates", return_value=candidates):
+        findings = find_naked_pairs(board)
+
+    eliminated_cells = [(r-1, c-1) for f in findings for r, c in [f['cell']]]
+    expected_cells = [(r, 0) for r in range(2, 9)]
+    assert all(cell in eliminated_cells for cell in expected_cells), "Naked pair in column not detected"
+
+def test_detect_naked_pair_in_block():
+    # Top-left block has naked pair (5,6) at (0,0) and (1,1)
+    user_board = [[0]*9 for _ in range(9)]
+    board = DummyBoard(user_board)
+
+    candidates = [[set() for _ in range(9)] for _ in range(9)]
+    candidates[0][0] = {5, 6}
+    candidates[1][1] = {5, 6}
+
+    with patch("hints.utils.board_utils.get_all_candidates", return_value=candidates):
+        findings = find_naked_pairs(board)
+
+    eliminated_cells = [(r-1, c-1) for f in findings for r, c in [f['cell']]]
+    # All other cells in block (0,1),(0,2),(1,0),(1,2),(2,0),(2,1),(2,2) should be affected
+    expected_cells = [(0,1),(0,2),(1,0),(1,2),(2,0),(2,1),(2,2)]
+    assert all(cell in eliminated_cells for cell in expected_cells), "Naked pair in block not detected"

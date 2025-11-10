@@ -69,6 +69,7 @@ class HintSection:
 
                     # Highlight only relevant candidates
                     board.highlight_cells([{"cell": cell_list, "value": value_list}])
+                    board.highlight_eliminations(hint["eliminations"])
                     return  # Handle one click per event
 
             # Check heuristic button clicks (expand/collapse)

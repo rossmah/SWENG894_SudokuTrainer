@@ -111,6 +111,9 @@ def main():
                         puzzle=puzzle,
                         solution=solution_board,
                     )
+
+                    # Automatically refresh hints whenever board changes
+                    board.register_update_listener(lambda: sidebar.hint_section.draw(screen))
                     
                     #DUBUG SECTION - Keeping for easy debug access, for now
                     '''

@@ -1,5 +1,6 @@
 # src/hints/heuristics/naked_singles.py 
 from hints.utils.board_utils import *
+from hints.utils.elimination_utils import find_eliminations
 
 # Naked Singles Heuristic
 # -----------------------
@@ -17,7 +18,7 @@ from hints.utils.board_utils import *
 # Returns:
 #    list[dict]: A list of hints. Each hint dictionary contains:
 #        {
-#            'technique': 'Naked Single',
+#            'technique': 'Naked Singles',
 #            'cell': (row, col),
 #            'value': int,
 #            'reason': 'Only possible number for this cell'
@@ -34,12 +35,14 @@ def find_naked_singles(board):
                 if len(candidates) == 1:
                     val = next(iter(candidates))
                     ui_cell = cell_to_ui_cell([(r, c)])[0]
+                    eliminations = find_eliminations(board, [(r, c, val)], 'Naked Singles')
                     hints.append({
-                        'technique': 'Naked Single',
+                        'technique': 'Naked Singles',
                         'cell': ui_cell,
                         'value': val,
                         'reason': f'Cell {ui_cell} can only be {val}.',
-                        'where': ['cell']
+                        'where': ['cell'],
+                        "eliminations": eliminations
                     })
 
     return hints

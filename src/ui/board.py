@@ -36,9 +36,22 @@ class Board:
         # Count of how many of each number user has correctly entered
         self.number_counts = {i: 0 for i in range(1, 10)}
 
-        # Highlighting hints
-        self.highlighted_cells = []       # Cells highlighted for the current hint
-        self.highlighted_candidates = {}  # Dict mapping (r,c) -> set of candidates to highlight
+        # Highlighting hints and eliminations
+        self.highlighted_cells = []        # Cells highlighted for the current hint
+        self.highlighted_candidates = {}   # Dict mapping (r,c) -> set of candidates to highlight
+        self.highlighted_eliminations = {} # Dict mapping (r,c) -> set of candidates to eliminate
+
+        # --- Add update listener support ---
+        self._update_listeners = []
+
+    # ------------------- Listener API -------------------
+    def register_update_listener(self, callback):
+        """Register a function to call whenever the board updates."""
+        self._update_listeners.append(callback)
+
+    def _notify_update(self):
+        for callback in self._update_listeners:
+            callback()
 
     def get_conflicts(self, row, col):
         # Return list of (r, c) positions that conflict with selected cell
@@ -62,38 +75,6 @@ class Board:
                 if (r, c) != (row, col) and self.user_board[r][c] == num:
                     conflicts.append((r, c))
         return conflicts
-    
-    # --- New method to highlight candidates for a hint ---
-    def highlight_candidates_for_hint(self, cells):
-        """
-        Marks the given cells as associated with a hint and populates
-        candidate notes for empty or incorrect cells.
-        """
-        self.highlighted_cells = cells if isinstance(cells, list) else [cells]
-        self.highlighted_candidates = {}
-
-        all_candidates = get_all_candidates(self)  # From board_utils.py
-
-        for r, c in self.highlighted_cells:
-            # If the cell is empty or has a wrong entry, replace value with notes
-            if self.user_board[r][c] == 0 or (self.solution and self.user_board[r][c] != self.solution[r][c]):
-                self.user_board[r][c] = 0  # Clear wrong value if needed
-                self.notes[r][c] = set(all_candidates[r][c])
-            
-            # Keep track of candidates for green highlighting
-            self.highlighted_candidates[(r, c)] = set(all_candidates[r][c])
-
-    def highlight_hint_candidates(self, cells, values):
-            """Highlight candidate numbers for the given cells and values."""
-            candidates = get_all_candidates(self)
-            self.highlighted_candidates.clear()
-
-            for (r, c) in cells:
-                if r < len(candidates) and c < len(candidates[r]):
-                    for val in values:
-                        if val in candidates[r][c]:
-                            # store per-cell, per-value highlight
-                            self.highlighted_candidates[(r, c, val)] = True
        
     def draw(self, screen):
         # Draw grid background color
@@ -218,6 +199,13 @@ class Board:
                             note_label = note_font.render(str(note), True, (0, 0, 0))  # text color (black)
                             screen.blit(note_label, note_rect)
 
+                        # If this candidate is marked for elimination - draw red box
+                        if (row, col) in self.highlighted_eliminations and note in self.highlighted_eliminations[(row, col)]:
+                            box_rect = note_rect.inflate(6, 6)
+                            pygame.draw.rect(screen, style.HIGHLIGHT_RED, box_rect, border_radius=2)
+                            note_label = note_font.render(str(note), True, (0, 0, 0))  # text color (black)
+                            screen.blit(note_label, note_rect)
+
         # Draw thicker lines every 3 cells (classic Sudoku style)
         for i in range(self.size + 1):
             if  i % 3 == 0:
@@ -283,6 +271,7 @@ class Board:
                 self.notes[row][col].remove(number)
             else:
                 self.notes[row][col].add(number)
+            self._notify_update()
             return  # stop here, do not place number in user_board
 
         # ----- Solve mode -----
@@ -293,8 +282,21 @@ class Board:
         if self.solution and number == self.solution[row][col]:
             self.locked[row][col] = 1
             
-            # Update number counts after correct entry
-            self.update_number_counts()
+        # Update number counts after correct entry
+        self.update_number_counts()
+
+        # Notify Observers / Hint refresh
+        self._notify_update()
+
+    # ------------------- Candidate updates -------------------
+    def add_candidate(self, row, col, value):
+        if 1 <= value <= 9:
+            self.notes[row][col].add(value)
+            self._notify_update()
+
+    def remove_candidate(self, row, col, value):
+        self.notes[row][col].discard(value)
+        self._notify_update()
     
     def toggle_notes_mode(self):
         self.notes_mode = not self.notes_mode
@@ -306,12 +308,11 @@ class Board:
             for num in row:
                 if num in self.number_counts:
                     self.number_counts[num] += 1
-
-        #
-        # Apply hint highlighting to the board.
-        # Args:
-        #    hints: list of hint dicts, each containing at least 'cell' and 'value'
-        #
+    #
+    # Apply hint highlighting to the board.
+    # Args:
+    #    hints: list of hint dicts, each containing at least 'cell' and 'value'
+    #
     def highlight_cells(self, hints):
         # Clear previous highlights
         self.highlighted_candidates.clear()
@@ -361,7 +362,63 @@ class Board:
 
                     fake_event = pygame.event.Event(pygame.KEYDOWN, {'key': pygame.K_f})
                     handle_hint_key(fake_event, self)
-                    
+                else:
+                    print(f"Warning: cell out of bounds in highlight_cells: {(r+1,c+1)}")
+
+    def highlight_eliminations(self, eliminations):
+        """
+        Highlight candidate eliminations in red boxes.
+
+        Args:
+            eliminations: list of dicts, each containing:
+                - "cell": (r, c) in 0-based indexing
+                - "value": int (candidate number)
+        """
+        self.highlighted_eliminations.clear()
+
+        for elim in eliminations:
+            # --- Normalize cells ---
+            cells = elim.get('cell')
+            if isinstance(cells, tuple) and len(cells) == 2 and all(isinstance(x, int) for x in cells):
+                # single cell tuple
+                cells = [cells]
+            elif isinstance(cells, list) and all(isinstance(c, tuple) and len(c) == 2 for c in cells):
+                # list of tuples
+                pass
+            else:
+                # Unexpected format, skip
+                print(f"Warning: unexpected cell format in hint: {cells}")
+                continue
+
+            # --- Normalize values ---
+            values = elim.get('remove')
+            if isinstance(values, int):
+                values = [values]
+            elif isinstance(values, (set, tuple, list)):
+                values = list(values)
+            else:
+                print(f"Warning: unexpected value format in hint: {values}")
+                continue
+
+            # --- Apply highlights ---
+            for cell in cells:
+                r, c = cell
+
+                #Convert from 1-based (UI) to 0-based (internal) indexing
+                if r >= 1 and c >= 1:
+                    r -= 1
+                    c -= 1
+                # Skip invalid cells
+                if not (0 <= r < self.size and 0 <= c < self.size):
+                    print(f"Warning: cell out of bounds in highlight_cells: ({r}, {c})")
+                    continue
+
+                if 0 <= r < self.size and 0 <= c < self.size:
+                    if (r, c) not in self.highlighted_eliminations:
+                        self.highlighted_eliminations[(r, c)] = set()
+                    self.highlighted_eliminations[(r, c)].update(values)
+
                 else:
                     print(f"Warning: cell out of bounds in highlight_cells: {(r,c)}")
 
+        print("Eliminations:", eliminations)
