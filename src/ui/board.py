@@ -8,7 +8,7 @@ from ui.hint_section import handle_hint_key
 GRID_SIZE = 9
 
 class Board:
-    def __init__(self, size=9, screen_size=600, puzzle=None, solution=None):
+    def __init__(self, size=9, screen_size=600, puzzle=None, solution=None, import_mode=False):
         self.size = size
         self.screen_size = screen_size
         self.cell_size = screen_size // size
@@ -43,6 +43,9 @@ class Board:
 
         # --- Add update listener support ---
         self._update_listeners = []
+
+        # Import-related flag. True while user is entering givens during import
+        self.import_mode = import_mode
 
     # ------------------- Listener API -------------------
     def register_update_listener(self, callback):
@@ -149,22 +152,28 @@ class Board:
                 num = self.user_board[row][col]
                 is_wrong = self.solution and num != 0 and num != self.solution[row][col] and not self.givens[row][col]
                 if num != 0:
-                    if self.givens[row][col] != 0:
-                    # Given number - black
-                        color = style.GIVEN_COLOR
-                    elif self.locked[row][col]:
-                        # Correct user entry - blue
-                        color = style.USER_COLOR
-                    else:
-                        # Incorrect user entry - red
-                        color = style.WRONG_COLOR
+                    if self.import_mode:
+                        if self.get_conflicts(r, c):
+                            color = style.WRONG_COLOR  # red
+                        else: 
+                            color = style.GIVEN_COLOR
+                    else: 
+                        if self.givens[row][col] != 0:
+                        # Given number - black
+                            color = style.GIVEN_COLOR
+                        elif self.locked[row][col]:
+                            # Correct user entry - blue
+                            color = style.USER_COLOR
+                        else:
+                            # Incorrect user entry - red
+                            color = style.WRONG_COLOR
                     label = self.font.render(str(num), True, color)
                     label_rect = label.get_rect(center=rect.center)
                     screen.blit(label, label_rect)
 
                 # Draw notes - only if cell is empty
                 notes = self.notes[row][col]
-                if notes and self.user_board[row][col] == 0:
+                if notes and self.user_board[row][col] == 0 and not self.import_mode:
                     for note in notes:
                         sub_row = (note - 1) // 3
                         sub_col = (note - 1) % 3
@@ -239,11 +248,18 @@ class Board:
         #Convert a key press into a number entry or deletion.
         if key in range(pygame.K_1, pygame.K_9 + 1):
             number = key - pygame.K_0
+            if self.import_mode:
+            # in import mode ignore number_counts limits and givens/locked checks
+                self.handle_import_entry(number)
+                return
             # If all of number x is on the board, don't let user enter more
             if self.number_counts.get(number, 0) >= 9:
                 return
             self.handle_number_entry(number)
         elif key in (pygame.K_BACKSPACE, pygame.K_DELETE):
+            if self.import_mode:
+                self.handle_import_entry(0)
+                return
             self.handle_number_entry(0) 
         else:
             return
@@ -286,6 +302,23 @@ class Board:
         self.update_number_counts()
 
         # Notify Observers / Hint refresh
+        self._notify_update()
+
+    def handle_import_entry(self, number):
+        #Place or remove a given while in import mode (no notes allowed)
+        if self.selected_cell is None:
+            return
+        row, col = self.selected_cell
+
+        # In import mode, don't allow notes and we allow editing any cell.
+        self.user_board[row][col] = number
+        self.grid[row][col] = number
+
+        # Clear note set (if any)
+        if number != 0:
+            self.notes[row][col].clear()
+
+        self.update_number_counts()
         self._notify_update()
 
     # ------------------- Candidate updates -------------------
@@ -422,3 +455,67 @@ class Board:
                     print(f"Warning: cell out of bounds in highlight_cells: {(r,c)}")
 
         print("Eliminations:", eliminations)
+
+    def prepare_import_mode(self):
+        """Reset board to a blank editable board for Import Menu.
+        Notes disabled for Import Menu UI (outer code will hide notes controls)."""
+        self.import_mode = True
+        self.grid = [[0] * self.size for _ in range(self.size)]
+        self.user_board = [[0] * self.size for _ in range(self.size)]
+        # keep notes structure but they won't be used in import screen
+        self.notes = [[set() for _ in range(self.size)] for _ in range(self.size)]
+        # no givens during entry
+        self.givens = [[0] * self.size for _ in range(self.size)]
+        self.locked = [[0] * self.size for _ in range(self.size)]
+        self.update_number_counts()
+        self.selected_cell = None
+        self._notify_update()
+
+    def finalize_import(self, solution):
+        #Called after validation & solver confirm puzzle, converts user entries into givens
+        self.import_mode = False
+        self.solution = solution
+
+        # Convert non-zero entries into givens and lock them
+        self.givens = [[1 if cell != 0 else 0 for cell in row] for row in self.grid]
+        self.locked = [[1 if cell != 0 else 0 for cell in row] for row in self.grid]
+
+        # Clear notes from given cells
+        for r in range(self.size):
+            for c in range(self.size):
+                if self.givens[r][c]:
+                    self.notes[r][c].clear()
+
+        self.update_number_counts()
+        self._notify_update()
+
+    def reset_to_givens(self):
+        """
+        Clears all user-entered numbers and notes, leaving only the original givens.
+        Resets locked cells for correct entries, clears highlights, and updates number counts.
+        """
+        for r in range(self.size):
+            for c in range(self.size):
+                # If cell is not a given, clear it
+                if not self.givens[r][c]:
+                    self.user_board[r][c] = 0
+                    self.notes[r][c].clear()
+                    self.locked[r][c] = 0
+                else:
+                    # Optionally, keep locked givens as locked
+                    self.locked[r][c] = 1
+
+        # Clear highlights
+        self.highlighted_cells.clear()
+        self.highlighted_candidates.clear()
+        self.highlighted_eliminations.clear()
+
+        # Reset number counts
+        self.update_number_counts()
+
+        # Reset selection
+        self.selected_cell = None
+        self.selected_cell_type = None
+
+        # Notify any listeners
+        self._notify_update()

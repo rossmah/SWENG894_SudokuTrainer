@@ -55,7 +55,7 @@ class HintSection:
     def handle_event(self, event, board):
         # Handle mouse clicks on buttons to expand/collapse
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            mouse_pos = pygame.mouse.get_pos()
+            mouse_pos = event.pos
 
             # Check clicks on "Show" buttons
             for rect, hint in self.show_button_rects:
@@ -183,7 +183,7 @@ class HintSection:
             # Move x position for next value
             current_x += value_rect.width + spacing
 
-        return font.get_height() + self.hint_button_spacing  # return vertical space used
+        return max(font.get_height(),22) + self.hint_button_spacing
 
     def draw(self, screen):
         # compute geometry
@@ -248,13 +248,12 @@ class HintSection:
                         cell,
                         val
                     )
-                    cur_y += used_height + 2
 
                     # Draw "Show" button
                     show_text = self.button_font.render("Show", True, style.TEXT_COLOR)
                     show_rect = pygame.Rect(
                         btn_rect.right - show_text.get_width() - 14,
-                        scroll_rect.top + cur_y - used_height,
+                        scroll_rect.top + cur_y,
                         show_text.get_width() + 10,
                         22
                     )
@@ -263,6 +262,7 @@ class HintSection:
                     screen.blit(show_text, (show_rect.x + 5, show_rect.y + 3))
                     self.show_button_rects.append((show_rect, hint))
 
+                    cur_y += used_height + 2
          # Draw scrollbar
         if self.total_content_height > scroll_rect.height:
             scrollbar_height = max(20, scroll_rect.height * scroll_rect.height // self.total_content_height)

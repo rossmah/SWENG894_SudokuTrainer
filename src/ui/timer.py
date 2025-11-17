@@ -20,6 +20,7 @@ class Timer:
         self.pause_rect = pygame.Rect(self.x + 60, self.y + 8, self.icon_size, self.icon_size)
         self.resume_rect = None # Overlay button
 
+        self.restart_rect = None
     def start(self):
         #Start or restart the timer
         self.start_time = time.time()
@@ -85,6 +86,25 @@ class Timer:
             resume_font = style.get_title_font(30)
             resume_text = resume_font.render("RESUME", True, style.TEXT_COLOR)
 
+            # --- Restart button ---
+            restart_font = style.get_title_font(30)
+            restart_text = restart_font.render("RESTART", True, style.TEXT_COLOR)
+
+            self.restart_rect = pygame.Rect(
+                SCREEN_WIDTH // 2 - 100,
+                SCREEN_HEIGHT // 2 + 90, 
+                200, 50
+            )
+            pygame.draw.rect(screen, style.BUTTON_BLUE, self.restart_rect, border_radius=50)
+
+            screen.blit(
+                restart_text,
+                (
+                    SCREEN_WIDTH // 2 - restart_text.get_width() // 2,
+                    SCREEN_HEIGHT // 2 - restart_text.get_height() // 2 + 115
+                )
+            )
+
             # Button background & position
             self.resume_rect = pygame.Rect(SCREEN_WIDTH//2 - 100,
                                         SCREEN_HEIGHT//2 + 25, 200, 50) 
@@ -115,6 +135,10 @@ class Timer:
             if self.paused and self.resume_rect and self.resume_rect.collidepoint(event.pos):
                 self.toggle()
                 return True  # handled event
+            
+            # Restart button
+            elif self.paused and self.restart_rect and self.restart_rect.collidepoint(event.pos):
+                return "restart"
 
             # STATE 2) If game is not paused, check play button in the main timer menu
             elif not self.paused and self.pause_rect and self.pause_rect.collidepoint(event.pos):

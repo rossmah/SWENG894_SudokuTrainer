@@ -8,6 +8,7 @@ from ui.timer import Timer
 import ui.style as style
 from ui.sidebar import Sidebar
 from ui.hint_section import handle_hint_key
+from ui.import_menu import ImportMenu
 
 # ------------------- INITIALIZE PYGAME -------------------
 # Initialize Pygame
@@ -32,6 +33,7 @@ screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 STATE_MENU = "menu"
 STATE_DIFFICULTY = "difficulty"
 STATE_GAME = "game"
+STATE_IMPORT = "import"
 
 # ------------------- CREATE MENUS -------------------
 # Menus
@@ -54,6 +56,14 @@ difficulty_menu = Menu(
      x=SCREEN_WIDTH // 2, 
      y=SCREEN_HEIGHT // 4,
      menu_type = "DIFFICULTY",
+     spacing = 60)
+import_menu = Menu(
+    [("BACK", "back"),
+     ("FINISH IMPORT", "finish_import")],
+     style.FONT_MENU,
+     x=SCREEN_WIDTH // 2, 
+     y=SCREEN_HEIGHT - 80,
+     menu_type = "IMPORT",
      spacing = 60)
 
 # ------------------- GLOBALS -------------------
@@ -83,7 +93,12 @@ def main():
 
             # --- TIMER HANDLING ---
             if timer:
-                timer.handle_event(event)
+                handled = timer.handle_event(event)
+
+                if handled == "restart":
+                    board.reset_to_givens()  
+                    timer.start()            
+                    continue   
             
             # If overlay is active, skip other input underneath
             if timer and timer.paused:
@@ -94,6 +109,9 @@ def main():
                 choice = main_menu.handle_event(event)
                 if choice == "new_game":
                     game_state = STATE_DIFFICULTY
+                if choice == "import":
+                    import_menu = ImportMenu(SCREEN_WIDTH, SCREEN_HEIGHT)
+                    game_state = STATE_IMPORT
                 elif choice == "quit":
                     run = False
 
@@ -154,6 +172,45 @@ def main():
 
                     sidebar = Sidebar(board, numberpad, timer, SCREEN_WIDTH)
 
+            elif game_state == STATE_IMPORT:
+                result = import_menu.handle_event(event)
+
+                if isinstance(result, list):
+                    imported_grid = import_menu.board.user_board
+                    solved_board = result
+
+                    # Create the Board instance for gameplay
+                    board = Board(
+                        size=9,
+                        screen_size=GRID_SIZE,
+                        puzzle=imported_grid,
+                        solution=solved_board
+                    )
+
+                    game_state = STATE_GAME
+                    board.selected_cell = None
+
+                    board.register_update_listener(lambda: sidebar.hint_section.draw(screen))
+                
+                    # NumberPad
+                    numberpad = NumberPad(GRID_SIZE, board.screen_size)
+                    numberpad.board = board
+
+                    # Sidebar
+                    timer = Timer(style.FONT_TIMER, 650, 32)
+                    timer.start()
+                    sidebar = Sidebar(board, numberpad, timer, SCREEN_WIDTH)
+                    
+                    # Ensure the hint section references the correct board object
+                    sidebar.hint_section.board = board
+
+                    # Populate/refresh hint-related internal state so dropdowns are clickable
+                    from hints.engine.hint_engine import HintEngine
+                    sidebar.hint_section.hints = HintEngine.get_all_hints(board)
+
+                    # Recompute layout values the hint section uses (scroll/content height)
+                    sidebar.hint_section._update_content_height()
+
             # --- BOARD (GAME LOOP)---
             elif game_state == STATE_GAME:
                 if event.type == pygame.MOUSEBUTTONUP:
@@ -184,6 +241,8 @@ def main():
             main_menu.draw(screen)
         elif game_state == STATE_DIFFICULTY:
             difficulty_menu.draw(screen)
+        elif game_state == STATE_IMPORT:
+            import_menu.draw(screen)
         elif game_state == STATE_GAME and board:
             board.draw(screen)
             sidebar.draw(screen)
