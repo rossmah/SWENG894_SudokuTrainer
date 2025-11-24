@@ -70,3 +70,8 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# Mac generated
+.DS_Store
+
+# Saved game files
+src/core/saves

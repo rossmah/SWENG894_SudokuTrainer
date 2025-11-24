@@ -4,7 +4,7 @@ import pygame
 import ui.style as style
 
 class Timer:
-    def __init__(self, font, x, y):
+    def __init__(self, font, x, y, elapsed_time=0):
         self.font = font
         self.x = x
         self.y = y
@@ -15,6 +15,8 @@ class Timer:
         self.paused = False
         self.pause_start = None
         self.total_paused = 0
+        self.completed = False
+        self.elapsed_time = elapsed_time
 
         # Pause icon area
         self.pause_rect = pygame.Rect(self.x + 60, self.y + 8, self.icon_size, self.icon_size)
@@ -23,19 +25,21 @@ class Timer:
         self.restart_rect = None
     def start(self):
         #Start or restart the timer
-        self.start_time = time.time()
+        self.start_time = time.time() - self.elapsed_time
         self.paused = False
         self.total_paused = 0
 
     def pause(self):
         #Pause the timer
         if not self.paused:
+            self.elapsed_time = time.time() - self.start_time
             self.paused = True
             self.pause_start = time.time()
 
     def resume(self):
         #Resume the timer after pausing
         if self.paused:
+            self.start_time = time.time() - self.elapsed_time
             self.total_paused += time.time() - self.pause_start
             self.paused = False
 
@@ -43,6 +47,8 @@ class Timer:
         #Toggle pause/resume
         if self.paused:
             self.resume()
+        elif self.completed:
+            self.pause()
         else:
             self.pause()
 
@@ -55,6 +61,10 @@ class Timer:
         else:
             elapsed = time.time() - self.start_time - self.total_paused
         return elapsed
+    
+    def set_elapsed(self, elapsed_time_load):
+        self.start_time = 0
+        self.elapsed_time = elapsed_time_load
 
     def draw(self, screen, SCREEN_WIDTH, SCREEN_HEIGHT, FONT):
         # Draw timer
@@ -65,7 +75,7 @@ class Timer:
         screen.blit(label, (self.x, self.y))
 
         # Draw Overlay
-        if self.paused:
+        if self.paused and not self.completed:
             overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
             overlay.fill(style.BACKGROUND_COLOR)
             screen.blit(overlay, (0,0))

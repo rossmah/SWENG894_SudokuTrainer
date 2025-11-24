@@ -519,3 +519,16 @@ class Board:
 
         # Notify any listeners
         self._notify_update()
+
+    #
+    # Returns True if user_board exactly matches the solution
+    #
+    def is_board_complete(self):
+        if not self.solution:
+            return False
+        for r in range(self.size):
+            for c in range(self.size):
+                if self.user_board[r][c] != self.solution[r][c]:
+                    return False
+        self.completed = True
+        return True

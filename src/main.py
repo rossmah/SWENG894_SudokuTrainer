@@ -9,6 +9,8 @@ import ui.style as style
 from ui.sidebar import Sidebar
 from ui.hint_section import handle_hint_key
 from ui.import_menu import ImportMenu
+from ui.complete_popup import CompletePopup
+from ui.save_load import load_game
 
 # ------------------- INITIALIZE PYGAME -------------------
 # Initialize Pygame
@@ -34,6 +36,7 @@ STATE_MENU = "menu"
 STATE_DIFFICULTY = "difficulty"
 STATE_GAME = "game"
 STATE_IMPORT = "import"
+STATE_PUZZLE_COMPLETE = "puzzle_complete"
 
 # ------------------- CREATE MENUS -------------------
 # Menus
@@ -75,6 +78,7 @@ board = None
 selected_difficulty = None
 selected_cell = None
 timer = None
+popup = None
 
 
 # Main loop
@@ -89,6 +93,10 @@ def main():
 
         for event in events:
             if event.type == pygame.QUIT:
+                # Save current game if one is in progress
+                if board and timer and game_state == STATE_GAME:
+                    from ui.save_load import save_game
+                    save_game(board, timer, difficulty_choice)
                 run = False
 
             # --- TIMER HANDLING ---
@@ -101,7 +109,7 @@ def main():
                     continue   
             
             # If overlay is active, skip other input underneath
-            if timer and timer.paused:
+            if timer and timer.paused and not timer.completed:
                 continue
 
             # --- MAIN MENU ---
@@ -112,7 +120,16 @@ def main():
                 if choice == "import":
                     import_menu = ImportMenu(SCREEN_WIDTH, SCREEN_HEIGHT)
                     game_state = STATE_IMPORT
+                if choice == "continue":
+                    result = load_game(screen, GRID_SIZE, SCREEN_WIDTH)
+                    if result is None:
+                        print("No saved game found!")
+                    else:
+                        board, timer, numberpad, sidebar, difficulty_choice = result
+                    game_state = STATE_GAME
                 elif choice == "quit":
+                    if board and timer and game_state == STATE_GAME:
+                        save_game(board, timer, difficulty_choice)
                     run = False
 
             # --- DIFFICULTY MENU ---
@@ -121,6 +138,7 @@ def main():
                 if difficulty_choice:
                     # Generate puzzle for selected difficulty
                     puzzle, solution_board = generate_sudoku(difficulty_choice)
+                    selected_difficulty = difficulty_choice.capitalize()
                     
                     # Create 9x9 board based on puzzle and solution
                     board = Board(
@@ -132,33 +150,6 @@ def main():
 
                     # Automatically refresh hints whenever board changes
                     board.register_update_listener(lambda: sidebar.hint_section.draw(screen))
-                    
-                    #DUBUG SECTION - Keeping for easy debug access, for now
-                    '''
-                    print("Puzzle for difficulty", choice)
-                    for row in puzzle:
-                        print(row)
-
-                    print("grid type:", type(board.grid), "len:", len(board.grid))
-                    print("grid[0] type:", type(board.grid[0]))
-                    print("user_board type:", type(board.user_board), "len:", len(board.user_board))
-                    print("user_board[0] type:", type(board.user_board[0]))
-
-                    # Debug print
-                    print("=== Initial Board State ===")
-                    print("grid:")
-                    for row in board.grid:
-                        print(row)
-                    print("user_board:")
-                    for row in board.user_board:
-                        print(row)
-                    print("givens:")
-                    for row in board.givens:
-                        print(row)
-                    print("solutions:")
-                    for row in solution_board:
-                        print(row)
-                    '''
 
                     game_state = STATE_GAME
                     board.selected_cell = None
@@ -174,6 +165,7 @@ def main():
 
             elif game_state == STATE_IMPORT:
                 result = import_menu.handle_event(event)
+                selected_difficulty = "Imported"
 
                 if isinstance(result, list):
                     imported_grid = import_menu.board.user_board
@@ -211,6 +203,18 @@ def main():
                     # Recompute layout values the hint section uses (scroll/content height)
                     sidebar.hint_section._update_content_height()
 
+            elif game_state == STATE_PUZZLE_COMPLETE:
+                # forward to popup
+                if popup:
+                    res = popup.handle_event(event)
+                    if res == 'menu':
+                        # Reset app and go to main menu
+                        timer = None
+                        board = None
+                        sidebar = None
+                        numberpad = None
+                        popup = None
+                        game_state = STATE_MENU
             # --- BOARD (GAME LOOP)---
             elif game_state == STATE_GAME:
                 if event.type == pygame.MOUSEBUTTONUP:
@@ -218,6 +222,12 @@ def main():
                     num_clicked = numberpad.handle_event(event)
                     if num_clicked and board and board.selected_cell:
                         board.handle_number_entry(num_clicked)
+                        # check completion
+                        if board.is_board_complete():
+                            timer.completed = True
+                            # create popup
+                            popup = CompletePopup(timer.get_elapsed(), selected_difficulty or "Unknown", SCREEN_WIDTH, SCREEN_HEIGHT)
+                            game_state = STATE_PUZZLE_COMPLETE
                     else:
                         # only update selected_cell if the click is on the grid
                         clicked_cell = board.get_cell_from_mouse(event.pos)
@@ -227,6 +237,11 @@ def main():
                 elif event.type == pygame.KEYDOWN:
                     if board and board.selected_cell:
                         board.handle_key(event.key)
+                        if board.is_board_complete():
+                            timer.completed = True
+                            timer.toggle()
+                            popup = CompletePopup(timer.get_elapsed(), selected_difficulty or "Unknown", SCREEN_WIDTH, SCREEN_HEIGHT)
+                            game_state = STATE_PUZZLE_COMPLETE
                     # Hint Keys - Used for easy testing/debugging
                     if board:
                         handle_hint_key(event, board)
@@ -243,9 +258,17 @@ def main():
             difficulty_menu.draw(screen)
         elif game_state == STATE_IMPORT:
             import_menu.draw(screen)
+            # TODO: JUST DRAW NUMBERPAD NOT SIDEBAR
         elif game_state == STATE_GAME and board:
             board.draw(screen)
             sidebar.draw(screen)
+        elif game_state == STATE_PUZZLE_COMPLETE and popup:
+            # draw board underneath so user sees board with overlay
+            if board:
+                board.draw(screen)
+                if sidebar:
+                    sidebar.draw(screen)
+            popup.draw(screen)
         pygame.display.flip()
         clock.tick(FPS)
 
