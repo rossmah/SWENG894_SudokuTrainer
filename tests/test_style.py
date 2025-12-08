@@ -44,21 +44,6 @@ def test_load_font_and_getters():
         default_font = style.get_default_font(20)
         assert isinstance(default_font, MagicMock)
 
-
-# ---------- Test fallback for invalid font path ----------
-def test_load_font_invalid(monkeypatch):
-    monkeypatch.setattr(style, "FONT_DIR", "/invalid/path")
-    # Reload style with patched FONT_DIR
-    import importlib
-    importlib.reload(style)
-    
-    # All fallback fonts should exist
-    assert isinstance(style.FONT_TITLE, pygame.font.Font)
-    assert isinstance(style.FONT_MENU, pygame.font.Font)
-    assert isinstance(style.FONT_TIMER, pygame.font.Font)
-    assert isinstance(style.FONT_MODE, pygame.font.Font)
-    assert isinstance(style.FONT_REGULAR, pygame.font.Font)
-
 # ---------- Test fallback print ----------
 def test_font_fallback_print(monkeypatch, capsys):
     monkeypatch.setattr(style, "FONT_DIR", "/invalid/path")

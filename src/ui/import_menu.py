@@ -21,10 +21,10 @@ class ImportMenu:
         )
 
         # Button
-        self.font = style.get_default_font(30)
+        self.font = style.get_title_font(30)
         self.finish_button = pygame.Rect(
             self.screen_width//2 + 160,
-            self.screen_height - 120,
+            self.screen_height//2,
             250,
             50
         )
@@ -99,37 +99,10 @@ class ImportMenu:
         self.board.draw(screen)
 
         # Draw Finish button
-        pygame.draw.rect(screen, style.BUTTON_BLUE, self.finish_button, border_radius=12)
-        finish_text = self.font.render("Finish Import", True, style.TEXT_COLOR)
+        pygame.draw.rect(screen, style.BUTTON_BLUE, self.finish_button, border_radius=50)
+        finish_text = self.font.render("FINISH IMPORT", True, style.TEXT_COLOR)
         screen.blit(
             finish_text,
             (self.finish_button.centerx - finish_text.get_width()//2,
              self.finish_button.centery - finish_text.get_height()//2)
         )
-
-    def validate_import(self):
-        """
-        Validate user-entered puzzle:
-        - All numbers obey Sudoku rules (no row/col/box duplicates)
-        - Puzzle is solvable
-        - Optional: unique solution
-        """
-        grid = [row[:] for row in self.board.user_board]  # copy
-
-        # 1. Check each filled cell against Sudoku rules
-        for r in range(9):
-            for c in range(9):
-                num = grid[r][c]
-                if num != 0:
-                    # Temporarily remove the number to test placement
-                    grid[r][c] = 0
-                    if not valid(grid, r, c, num):
-                        return False, f"Conflict at row {r+1}, col {c+1}"
-                    grid[r][c] = num
-
-        # 2. Check if solvable
-        grid_copy = [row[:] for row in grid]
-        if not solve(grid_copy):
-            return False, "Puzzle is unsolvable."
-
-        return True, grid_copy  # return solved grid

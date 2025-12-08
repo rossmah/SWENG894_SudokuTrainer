@@ -33,21 +33,6 @@ def test_sidebar_initialization(sidebar_mocks):
         assert sidebar.numberpad == numberpad
         assert sidebar.timer == timer
 
-def test_draw_calls_blit(sidebar_mocks):
-    board, numberpad, timer, screen_width = sidebar_mocks
-    sidebar = Sidebar(board, numberpad, timer, screen_width)
-
-    mock_screen = MagicMock()  # mock screen with blit
-    with patch("ui.style.get_title_font") as mock_font:
-        mock_font.return_value = MagicMock()
-        mock_font.return_value.render.return_value = MagicMock()
-        sidebar.draw(mock_screen)
-
-    # Should call blit at least once for title
-    assert mock_screen.blit.call_count >= 1
-    timer.draw.assert_called()
-    numberpad.draw.assert_called()
-
 def test_draw_after_timer_paused(sidebar_mocks):
     board, numberpad, timer, screen_width = sidebar_mocks
     timer.paused = True

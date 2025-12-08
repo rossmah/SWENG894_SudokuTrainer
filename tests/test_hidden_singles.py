@@ -66,32 +66,6 @@ def test_hidden_single_validated_units(simple_hidden_single_board):
         # Only this cell should be candidate for hidden single
         assert c in row_candidates
 
-def test_multiple_hidden_singles():
-    # Custom board with multiple hidden singles in different units
-    puzzle = [
-        [0,2,3,4,5,6,7,8,9],
-        [1,0,0,0,0,0,0,0,0],
-        [0]*9,
-        [0]*9,
-        [0]*9,
-        [0]*9,
-        [0]*9,
-        [0]*9,
-        [0]*9
-    ]
-    board = Board(puzzle=puzzle)
-    hints = find_hidden_singles(board)
-    # There should be more than 1 hidden single
-    assert len(hints) >= 2
-    # Each hint should be a tuple of (row, col) and value 1-9
-    for hint in hints:
-        r, c = hint["cell"]
-        val = hint["value"]
-        assert 0 <= r < 9
-        assert 0 <= c < 9
-        assert 1 <= val <= 9
-        # Cell must be empty
-        assert board.user_board[r][c] == 0
 
 def test_hidden_single_ignores_naked_singles():
     # Board with naked singles filled

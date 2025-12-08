@@ -40,7 +40,7 @@ def save_game(board, timer, difficulty):
     save_data = {
         "board": board_data,
         "timer": timer_data,
-        "difficulty": getattr(board, "difficulty", None)
+        "difficulty": difficulty
     }
 
     # Write to file

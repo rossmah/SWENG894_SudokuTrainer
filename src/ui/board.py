@@ -153,7 +153,7 @@ class Board:
                 is_wrong = self.solution and num != 0 and num != self.solution[row][col] and not self.givens[row][col]
                 if num != 0:
                     if self.import_mode:
-                        if self.get_conflicts(r, c):
+                        if self.get_conflicts(row, col):
                             color = style.WRONG_COLOR  # red
                         else: 
                             color = style.GIVEN_COLOR
@@ -298,8 +298,16 @@ class Board:
         if self.solution and number == self.solution[row][col]:
             self.locked[row][col] = 1
             
-        # Update number counts after correct entry
-        self.update_number_counts()
+            # Update number counts after correct entry
+            self.update_number_counts()
+
+            # Refresh candidates after correct entry
+            candidates = get_all_candidates(self)
+            for r in range(self.size):
+                for c in range(self.size):
+                    if self.user_board[r][c] == 0:  # empty cell
+                        self.notes[r][c] = set(candidates[r][c])
+
 
         # Notify Observers / Hint refresh
         self._notify_update()

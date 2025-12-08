@@ -68,3 +68,49 @@ def test_detect_naked_pairs(simple_board):
         val_set_1 = {1, 2}
         val_set_2 = {1, 2}
         assert val_set_1 == val_set_2 and len(val_set_1) == 2
+
+# --- TC-11.4: get_hint_by_key invalid key ---
+def test_get_hint_by_key_valid(simple_board, key, expected):
+    hints = HintEngine.get_hint_by_key(simple_board, key)
+    assert isinstance(hints, list)
+    # Check that all returned hints have correct technique (if non-empty)
+    if hints:
+        for hint in hints:
+            assert hint["technique"] == expected
+
+# --- TC-11.5: get_hint_by_key valid keys ---
+@pytest.mark.parametrize("key, expected", [
+    (pygame.K_a, "Naked Singles"),
+    (pygame.K_b, "Naked Pairs"),
+    (pygame.K_c, "Hidden Singles"),
+])
+def test_get_hint_by_key_valid(simple_board, key, expected):
+    hints = HintEngine.get_hint_by_key(simple_board, key)
+    # Should always return a list (can be empty)
+    assert isinstance(hints, list)
+
+# --- TC-11.6: get_all_hints returns all keys ---
+def test_get_all_hints_returns_all(simple_board):
+    hints_dict = HintEngine.get_all_hints(simple_board)
+    assert isinstance(hints_dict, dict)
+    for name in ["Naked Singles", "Naked Pairs", "Hidden Singles"]:
+        assert name in hints_dict
+        assert isinstance(hints_dict[name], list)
+
+# --- TC-11.7: get_hint_by_key exception handling ---
+def test_get_hint_by_key_exception(monkeypatch, simple_board):
+    # Force a heuristic function to raise an exception
+    def fake_func(board):
+        raise ValueError("forced error")
+    monkeypatch.setitem(HintEngine.HEURISTICS, pygame.K_d, ("Fake", fake_func))
+    hints = HintEngine.get_hint_by_key(simple_board, pygame.K_d)
+    assert hints == []
+
+# --- TC-11.8: get_all_hints exception handling ---
+def test_get_all_hints_exception(monkeypatch, simple_board):
+    def fake_func(board):
+        raise ValueError("forced error")
+    monkeypatch.setitem(HintEngine.HEURISTICS, pygame.K_e, ("FakeAll", fake_func))
+    hints_dict = HintEngine.get_all_hints(simple_board)
+    assert "FakeAll" in hints_dict
+    assert hints_dict["FakeAll"] == []

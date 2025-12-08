@@ -17,7 +17,7 @@ def pygame_init():
     pygame.font.init()
     yield
     pygame.quit()
-    
+
 @pytest.fixture
 def sample_board():
     # 3x3 block board for simplicity
@@ -86,11 +86,11 @@ def test_get_all_candidates(sample_board):
 
 def test_pretty_print_findings(capsys):
     findings = [
-        {"technique":"Hidden Single", "cell":(1,1), "value":5, "reason":"test reason"}
+        {"technique":"Hidden Singles", "cell":(1,1), "value":5, "reason":"test reason"}
     ]
     bu.pretty_print_findings(findings)
     captured = capsys.readouterr()
-    assert "Hidden Single: Cell (1, 1) -> 5 | test reason" in captured.out
+    assert "Hidden Singles: Cell (1, 1) -> 5 | test reason" in captured.out
 
 def test_pretty_print_findings_empty(capsys):
     bu.pretty_print_findings([])

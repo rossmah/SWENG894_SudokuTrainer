@@ -21,17 +21,16 @@ class Sidebar:
         self.title_surface = self.title_font.render("SUDOKU TRAINER", True, style.TEXT_COLOR)
 
         # Position title centered between board and screen edge
-        sidebar_width = screen_width - board.screen_size
+        self.sidebar_width = screen_width - board.screen_size
         self.title_rect = self.title_surface.get_rect(
-            center=(board.screen_size + sidebar_width // 2, y_offset + self.title_surface.get_height() // 2)
+            center=(board.screen_size + self.sidebar_width // 2, self.title_surface.get_height() // 2)
         )
 
         self.hint_section = HintSection(board, screen_width)
 
     def draw(self, screen):
         # Draw title
-        title_surface = style.get_title_font(28).render("SUDOKU TRAINER", True, style.TEXT_COLOR)
-        screen.blit(title_surface, (self.board.screen_size + 20, 1))
+        screen.blit(self.title_surface, self.title_rect)
 
         # Draw timer below title
         if self.timer:

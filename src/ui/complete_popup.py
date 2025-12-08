@@ -11,7 +11,7 @@ class CompletePopup:
 
         self.title_font = style.get_title_font(48)
         self.text_font = style.get_default_font(24)
-        self.button_font = style.get_default_font(20)
+        self.button_font = style.get_title_font(34)
 
         # Button rect (centered, relative to screen)
         self.button_rect = pygame.Rect(
@@ -39,29 +39,28 @@ class CompletePopup:
             return
 
         overlay = pygame.Surface((self.screen_width, self.screen_height), flags=pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 150))
+        overlay.fill((0, 0, 0, 130))
 
-        card_color = (int(style.BACKGROUND_GRID[0]), int(style.BACKGROUND_GRID[1]), int(style.BACKGROUND_GRID[2]), 240)
-        pygame.draw.rect(overlay, card_color, self.card_rect, border_radius=12)
-
-        # card border (opaque)
-        pygame.draw.rect(overlay, style.GRID_BLACK_LINE, self.card_rect, 2, border_radius=12)
+        card_color = (int(style.BACKGROUND_GRID[0]), int(style.BACKGROUND_GRID[1]), int(style.BACKGROUND_GRID[2]), 255)
+        pygame.draw.rect(overlay, card_color, self.card_rect, border_radius=20)
 
         # Title
         title_surf = self.title_font.render("Congratulations!", True, style.TEXT_COLOR)
         overlay.blit(title_surf, (self.card_x + self.card_w//2 - title_surf.get_width()//2, self.card_y + 18))
 
         # Time text
-        time_surf = self.text_font.render(f"Time: {self.format_time()}", True, style.TEXT_COLOR)
+        time_font = style.get_title_font(28)
+        time_surf = time_font.render(f"Time: {self.format_time()}", True, style.TEXT_COLOR)
         overlay.blit(time_surf, (self.card_x + 40, self.card_y + 90))
 
         # Difficulty text
-        diff_surf = self.text_font.render(f"Difficulty: {self.difficulty}", True, style.TEXT_COLOR)
+        diff_font = style.get_title_font(28)
+        diff_surf = diff_font.render(f"Difficulty: {self.difficulty}", True, style.TEXT_COLOR)
         overlay.blit(diff_surf, (self.card_x + 40, self.card_y + 130))
 
         # Draw button on overlay
-        pygame.draw.rect(overlay, style.BUTTON_BLUE, self.button_rect, border_radius=10)
-        btn_text = self.button_font.render("Return to Main Menu", True, style.TEXT_COLOR)
+        pygame.draw.rect(overlay, style.BUTTON_BLUE, self.button_rect, border_radius=50)
+        btn_text = self.button_font.render("MAIN MENU", True, style.TEXT_COLOR)
         overlay.blit(btn_text, (self.button_rect.centerx - btn_text.get_width()//2,
                                 self.button_rect.centery - btn_text.get_height()//2))
 

@@ -2,6 +2,7 @@
 import time
 import pygame
 import ui.style as style
+import ui.pause_overlay as PauseOverlay
 
 class Timer:
     def __init__(self, font, x, y, elapsed_time=0):
@@ -37,11 +38,19 @@ class Timer:
             self.pause_start = time.time()
 
     def resume(self):
-        #Resume the timer after pausing
         if self.paused:
-            self.start_time = time.time() - self.elapsed_time
-            self.total_paused += time.time() - self.pause_start
+            if self.pause_start is not None:
+                self.total_paused += time.time() - self.pause_start
+            self.pause_start = None
             self.paused = False
+
+    def restart(self):
+        self.elapsed_time = 0
+        self.total_paused = 0
+        self.start_time = time.time()
+        self.paused = False
+        self.pause_start = None
+        self.completed = False
 
     def toggle(self):
         #Toggle pause/resume
@@ -53,14 +62,14 @@ class Timer:
             self.pause()
 
     def get_elapsed(self):
-        #Get elapsed time in seconds
-        if not self.start_time:
+        if self.start_time is None:
             return 0
         if self.paused:
-            elapsed = self.pause_start - self.start_time - self.total_paused
+            if self.pause_start is None:
+                return self.elapsed_time
+            return self.pause_start - self.start_time - self.total_paused
         else:
-            elapsed = time.time() - self.start_time - self.total_paused
-        return elapsed
+            return time.time() - self.start_time - self.total_paused
     
     def set_elapsed(self, elapsed_time_load):
         self.start_time = 0
@@ -102,18 +111,14 @@ class Timer:
 
             self.restart_rect = pygame.Rect(
                 SCREEN_WIDTH // 2 - 100,
-                SCREEN_HEIGHT // 2 + 90, 
+                SCREEN_HEIGHT // 2 + 90,
                 200, 50
             )
             pygame.draw.rect(screen, style.BUTTON_BLUE, self.restart_rect, border_radius=50)
 
-            screen.blit(
-                restart_text,
-                (
-                    SCREEN_WIDTH // 2 - restart_text.get_width() // 2,
-                    SCREEN_HEIGHT // 2 - restart_text.get_height() // 2 + 115
-                )
-            )
+            # Center text *inside* the rect
+            text_rect = restart_text.get_rect(center=self.restart_rect.center)
+            screen.blit(restart_text, text_rect)
 
             # Button background & position
             self.resume_rect = pygame.Rect(SCREEN_WIDTH//2 - 100,

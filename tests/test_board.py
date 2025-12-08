@@ -155,3 +155,146 @@ def test_toggle_multiple_times_retains_data(board):
     assert board.notes[0][0] == {1}
     # Final value in Solve mode should remain
     assert board.user_board[0][0] == 3
+
+def test_locked_cell_ignored(board):
+    board.locked[0][0] = 1
+    board.handle_number_entry(5)
+    assert board.user_board[0][0] == 0
+
+def test_delete_number_clears_cell(board):
+    board.user_board[0][0] = 5
+    board.handle_number_entry(0)
+    assert board.user_board[0][0] == 0
+
+def test_handle_import_entry_places_and_clears_notes():
+    board = Board(size=9, import_mode=True)
+    board.notes[0][0].add(3)
+    board.selected_cell = (0, 0)
+    board.handle_import_entry(5)
+    assert board.user_board[0][0] == 5
+    assert board.grid[0][0] == 5
+    assert board.notes[0][0] == set()
+
+def test_handle_import_entry_removes_number():
+    board = Board(size=9, import_mode=True)
+    board.user_board[0][0] = 5
+    board.selected_cell = (0, 0)
+    board.handle_import_entry(0)
+    assert board.user_board[0][0] == 0
+
+def test_highlight_cells_single_cell():
+    board = Board(size=9)
+    board.selected_cell = (0, 0)
+
+    # Hint targeting cell (1,1) with value 5 (1-based UI coordinates)
+    hint = {'cell': (1, 1), 'value': 5}
+    board.highlight_cells([hint])
+
+    # Internally converted to 0-based indices -> (0,0)
+    assert (0, 0) in board.highlighted_candidates
+    assert board.highlighted_candidates[(0, 0)] == {5}
+
+def test_highlight_eliminations_multiple(board):
+    elim = {'cell': [(1,1),(2,2)], 'remove': [3,4]}
+    board.highlight_eliminations([elim])
+    assert board.highlighted_eliminations[(0,0)] == {3,4}
+    assert board.highlighted_eliminations[(1,1)] == {3,4}
+
+def test_reset_to_givens(board):
+    board.user_board[0][0] = 5
+    board.notes[0][0].add(1)
+    board.highlighted_candidates[(0,0)] = {1}
+    board.reset_to_givens()
+    assert board.user_board[0][0] == 0
+    assert board.notes[0][0] == set()
+    assert board.highlighted_candidates == {}
+
+def test_is_board_complete_true():
+    solution = [[1]*9 for _ in range(9)]
+    board = Board(size=9, solution=solution)
+    board.user_board = [row[:] for row in solution]
+    assert board.is_board_complete() is True
+
+def test_is_board_complete_false():
+    solution = [[1]*9 for _ in range(9)]
+    board = Board(size=9, solution=solution)
+    board.user_board[0][0] = 2
+    assert board.is_board_complete() is False
+
+def test_is_board_complete_no_solution():
+    board = Board(size=9)
+    assert board.is_board_complete() is False
+
+def test_number_count_limit_max_reached(board):
+    board.selected_cell = (0, 1)
+    for i in range(9):
+        board.user_board[i][0] = 1
+    board.handle_number_entry(1)
+    # Number is still placed in the selected cell
+    assert board.user_board[0][1] == 1
+
+def test_number_count_limit_not_full(board):
+    # Only 8 of number '2' exist
+    for r in range(8):
+        board.user_board[r][0] = 2
+    board.update_number_counts()
+
+    board.selected_cell = (8, 1)
+    board.handle_number_entry(2)  # should allow placement
+    assert board.user_board[8][1] == 2
+
+def test_invalid_number_entry_negative(board):
+    board.selected_cell = (0, 0)
+    board.handle_number_entry(-1)
+    assert board.user_board[0][0] == -1
+
+def test_invalid_number_entry_too_high(board):
+    board.selected_cell = (0, 0)
+    board.handle_number_entry(10)
+    assert board.user_board[0][0] == 10
+
+def test_conflicts_multiple_sources(empty_board):
+    board = Board(size=9)
+    # Place same number in row, column, and block
+    board.user_board[0][0] = 5
+    board.user_board[0][1] = 5  # same row
+    board.user_board[1][0] = 5  # same column
+    board.user_board[1][1] = 5  # same block
+    conflicts = board.get_conflicts(0, 0)
+    assert set(conflicts) == {(0,1), (1,0), (1,1)}
+
+def test_highlight_cells_empty_input(board):
+    board.highlighted_candidates = {}
+    board.highlight_cells([])
+    assert board.highlighted_candidates == {}
+
+def test_highlight_eliminations_empty_input(board):
+    board.highlighted_eliminations = {}
+    board.highlight_eliminations([])
+    assert board.highlighted_eliminations == {}
+
+def test_notes_mode_add_remove_multiple_cells(notes_board):
+    b = notes_board
+    # Add notes to two different cells
+    b.selected_cell = (0, 0)
+    b.handle_number_entry(1)
+    b.selected_cell = (0, 1)
+    b.handle_number_entry(2)
+    assert b.notes[0][0] == {1}
+    assert b.notes[0][1] == {2}
+
+def test_switch_notes_does_not_clear_final(board):
+    board.toggle_notes_mode()  # Notes mode
+    board.handle_number_entry(1)
+    board.toggle_notes_mode()  # Solve mode
+    board.handle_number_entry(3)
+    assert board.user_board[0][0] == 3
+    # Notes remain
+    assert board.notes[0][0] == {1}
+
+def test_reset_highlights_after_reset(board):
+    board.highlighted_candidates[(0,0)] = {1}
+    board.highlighted_eliminations[(1,1)] = {2}
+    board.reset_to_givens()
+    assert board.highlighted_candidates == {}
+    assert board.highlighted_eliminations == {}

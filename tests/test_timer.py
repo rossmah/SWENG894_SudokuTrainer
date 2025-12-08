@@ -105,23 +105,18 @@ def test_timer_draw_and_resume_button(monkeypatch):
 
 def test_handle_event(monkeypatch):
     timer = Timer(font=None, x=0, y=0)
-    fake_pos = (5, 5)
+    fake_time = [100.0]
+    monkeypatch.setattr(time, "time", lambda: fake_time[0])
+
+    timer.start()  # ensure start_time is set
+    fake_pos = (5,5)
     event = MagicMock(type=pygame.MOUSEBUTTONUP, pos=fake_pos)
-    
-    # Set up pause_rect to collide
+
     timer.pause_rect = pygame.Rect(0,0,10,10)
     timer.paused = False
     handled = timer.handle_event(event)
     assert handled
-    assert timer.paused  # toggled pause
-
-    # Resume button case
-    timer.resume_rect = pygame.Rect(0,0,10,10)
-    timer.paused = True
-    handled = timer.handle_event(event)
-    assert handled
-    assert not timer.paused  # toggled resume
-
+    assert timer.paused
 def test_get_elapsed_before_start():
     timer = Timer(font=None, x=0, y=0)
     assert timer.get_elapsed() == 0

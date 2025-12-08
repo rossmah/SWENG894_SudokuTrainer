@@ -10,7 +10,7 @@ from ui.sidebar import Sidebar
 from ui.hint_section import handle_hint_key
 from ui.import_menu import ImportMenu
 from ui.complete_popup import CompletePopup
-from ui.save_load import load_game
+from ui.save_load import load_game, save_game
 
 # ------------------- INITIALIZE PYGAME -------------------
 # Initialize Pygame
@@ -95,8 +95,7 @@ def main():
             if event.type == pygame.QUIT:
                 # Save current game if one is in progress
                 if board and timer and game_state == STATE_GAME:
-                    from ui.save_load import save_game
-                    save_game(board, timer, difficulty_choice)
+                    save_game(board, timer, selected_difficulty)
                 run = False
 
             # --- TIMER HANDLING ---
@@ -105,7 +104,7 @@ def main():
 
                 if handled == "restart":
                     board.reset_to_givens()  
-                    timer.start()            
+                    timer.restart()            
                     continue   
             
             # If overlay is active, skip other input underneath
@@ -123,13 +122,13 @@ def main():
                 if choice == "continue":
                     result = load_game(screen, GRID_SIZE, SCREEN_WIDTH)
                     if result is None:
-                        print("No saved game found!")
+                        continue
                     else:
-                        board, timer, numberpad, sidebar, difficulty_choice = result
+                        board, timer, numberpad, sidebar, selected_difficulty = result
                     game_state = STATE_GAME
                 elif choice == "quit":
                     if board and timer and game_state == STATE_GAME:
-                        save_game(board, timer, difficulty_choice)
+                        save_game(board, timer, selected_difficulty)
                     run = False
 
             # --- DIFFICULTY MENU ---

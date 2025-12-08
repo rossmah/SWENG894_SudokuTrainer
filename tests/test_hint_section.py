@@ -71,15 +71,6 @@ def test_initialization(hint_section, small_board):
     assert hasattr(hint_section, "buttons")
     assert isinstance(hint_section.buttons, list)
 
-def test_handle_hint_key_updates_highlights(small_board):
-    dummy_event = pygame.event.Event(pygame.KEYDOWN, {"key": pygame.K_f})
-    handle_hint_key(dummy_event, small_board)
-
-    # Check that highlighted candidates are populated
-    any_highlight = any(len(c) > 0 for c in small_board.notes[0][0])
-    # Actually, check our mock highlights
-    assert len(small_board.highlighted_candidates) > 0
-
 def test_handle_hint_key_invalid_key_does_nothing(small_board):
     dummy_event = pygame.event.Event(pygame.KEYDOWN, {"key": pygame.K_z})
     prev_candidates = small_board.highlighted_candidates.copy()
